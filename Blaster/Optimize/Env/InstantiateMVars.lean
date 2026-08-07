@@ -143,10 +143,6 @@ private unsafe def instantiateSharedMVarsAux' (cur : Expr) (isResult : Bool) (st
           if e.hasExprMVar then
            match e with
            | .mvar _ =>
-                -- Consult the `assign` snapshot first, then fall back to the metavar
-                -- context like `getMVarValue` (the previous version delegated all
-                -- recursive calls to the unprimed walker, so nested mvars already
-                -- behaved this way; now the snapshot is used at every depth).
                 let v := assign.getD e instCacheMiss
                 let r ← if exprEq v instCacheMiss then getMVarAssignment! e else pure v
                 if r.hasMVar

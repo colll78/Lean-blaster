@@ -15,7 +15,6 @@ instance : Repr (Option MVarIdDecls) where
 inductive OptimizeStack where
  | InitOptimizeExpr (e : Expr) (mvarDecls : Option MVarIdDecls := none)
  | InitOptimizeReturn (e : Expr) (isGlobal : Bool) (mvarDecls : Option MVarIdDecls)
- | InitOpaqueRecExpr (f : Expr) (args : Array Expr)
  | RecFunDefWaitForStorage (args : Array Expr) (instApp : Expr)
                            (subsInts : Expr) (params : ImplicitParameters) (startCtxId : CtxId)
  | RecFunDefStorage (args : Array Expr) (instApp : Expr)
@@ -44,7 +43,7 @@ inductive OptimizeStack where
  | MatchRhsLambdaWaitForBody (x : Expr)
  | MatchLhsSkipForallType (e : Expr)
  | MatchLhsForallWaitForBody (e : Expr)
- | MatchAltWaitForExpr (params : Array Expr) (hctx : HypsStackContext) (idx : USize) (mInfo : MatchInfo)
+ | MatchAltWaitForExpr (params : Array Expr) (hctx : HypsStackContext) (idx : USize) (matchInst : Expr)
  | LetWaitForValue (body : Expr)
  | MDataRecCallWaitForExpr (data : MData)
  | ProjWaitForExpr (n : Name) (idx : Nat)
@@ -256,12 +255,12 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
         let e ← mkLambdaFVarExpr x optExpr
         stackContinuity xs e
 
-  | .MatchAltWaitForExpr params hctx idx mInfo :: xs =>
+  | .MatchAltWaitForExpr params hctx idx matchInst :: xs =>
        -- optExpr corresponds to the optimized match rhs
        -- continuity with optimizing next expression
        let e ← mkLambdaFVarsExpr params optExpr
        if ← isCstIteMatch optExpr then updateCtorMatchPropCache e
-       resetChoiceContext hctx params mInfo.nameExpr idx
+       resetChoiceContext hctx params matchInst idx
        stackContinuity xs e
 
   | .MatchLhsForallWaitForBody x :: xs =>

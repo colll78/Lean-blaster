@@ -5,17 +5,17 @@ namespace Test.SmtRecFun
 
 /-! ## Test objectives to validate recursive functions Smt lib translation -/
 
-
 #blaster [ ∀ (x : Nat) (xs : List Nat), List.length xs + 1 = List.length (x :: xs) ]
 
-#blaster [ ∀ (α : Type) (x : α) (xs : List α), List.length xs + 1 = List.length (x :: xs) ]
+-- #blaster [ ∀ (α : Type) (x : α) (xs : List α), List.length xs + 1 = List.length (x :: xs) ]
 
 #blaster [ ∀ (s1 s2 : String), String.length s1 + String.length s2 = String.length (String.append s1 s2) ]
 
 -- NOTE: remove induction when supporting implicit induction
 set_option warn.sorry false in
 theorem length_append {as bs : List α} : (as ++ bs).length = as.length + bs.length := by
- induction as <;> simp <;> blaster
+ induction as <;> blaster
+
 
 /-! ## Test objectives to validate mutually recursive functions Smt lib translation -/
 

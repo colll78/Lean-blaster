@@ -279,6 +279,27 @@ def mkNatLtOp : TranslateEnvT Expr :=
 def mkIntLtOp : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.intLt
 
+/-- Return the `List.get?Internal` operator and cache result. -/
+def mkListGetInternal : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.listGetInternal
+
+/-- Return the `List.reverseAux` operator and cache result. -/
+def mkListReverseAux : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.listReverseAux
+
+/-- Return the `List.take` operator and cache result. -/
+def mkListTake : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.listTake
+
+/-- Return the `List.drop` operator and cache result. -/
+def mkListDrop : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.listDrop
+
+/-- Return the `List.length` operator and cache result. -/
+def mkListLength : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.listLength
+
+
 def assertShared (e : Expr) : TranslateEnvT Bool := do
   match (← get).optEnv.hashConsCache.get? e with
   | some r => return exprEq r.expr e
@@ -348,6 +369,9 @@ where
 def mkAppNExpr (f : Expr) (args : Array Expr) : TranslateEnvT Expr :=
   mkAppRangeExpr f 0 args.size args
 
+@[always_inline, inline]
+def mkSortExpr (u : Level) : TranslateEnvT Expr :=
+  mkExpr (.sort u)
 
 @[always_inline, inline]
 def mkBVarExpr (idx : Nat) : TranslateEnvT Expr :=
@@ -537,9 +561,9 @@ def mkCharType : TranslateEnvT Expr := mkExpr (mkConst ``Char)
 
 /-- Given `xs` a list of expression and `t` the list sort, generate the corresponding list expression. -/
 @[always_inline, inline]
-def listToExpr (xs : List Expr) (t : Expr) : TranslateEnvT Expr := do
- let consExpr ← mkAppExpr (← mkExpr (mkConst ``List.cons [levelZero])) t
- let nilExpr ← mkAppExpr (← mkExpr (mkConst ``List.nil [levelZero])) t
+def listToExpr (xs : List Expr) (u : List Level) (t : Expr) : TranslateEnvT Expr := do
+ let consExpr ← mkAppExpr (← mkExpr (mkConst ``List.cons u)) t
+ let nilExpr ← mkAppExpr (← mkExpr (mkConst ``List.nil u)) t
  let rec go (xs : List Expr) : TranslateEnvT Expr := do
    match xs with
    | [] => return nilExpr
@@ -558,9 +582,9 @@ def stringToCtor (s : String) : TranslateEnvT Expr := do
 
 
 /-- Given `m` an Option value and `t` the option sort return an Option expression. -/
-def mkOptionExpr (t : Expr) (m : Option Expr) : TranslateEnvT Expr := do
+def mkOptionExpr (t : Expr) (u : List Level) (m : Option Expr) : TranslateEnvT Expr := do
   match m with
-  | none => mkAppExpr (← mkExpr (mkConst ``Option.none [levelZero])) t
-  | some r => mkApp2Expr (← mkExpr (mkConst ``Option.some [levelZero])) t r
+  | none => mkAppExpr (← mkExpr (mkConst ``Option.none u)) t
+  | some r => mkApp2Expr (← mkExpr (mkConst ``Option.some u)) t r
 
 end Blaster.Optimize

@@ -232,7 +232,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
         else return none
       else
         if (← isRecursiveFun f) then
-          return (some $ Sum.inl $ .InitOpaqueRecExpr e #[] :: stack)
+          return (some $ ← normRecFun e #[] e stack)
         if (← isNotFoldable e #[]) then return none
         -- non recursive function case
         if let some fbody ← getFunBody e then

@@ -259,7 +259,6 @@ def patternMatchDiscrs (alt : Expr) (args : Array Expr) (mInfo : MatchInfo) : Tr
  let matchHit ← visit_discrs? lhs args mInfo.getFirstDiscrPos mInfo.getFirstAltPos .UnifyMatch
  return (altsMeta.mvarArgs, matchHit)
 
-
 @[always_inline, inline]
 def instantiateUnifiedMVars (mvars : Array Expr) : TranslateEnvT (Array Expr) := do
  let mAssignments := (← get).optEnv.mAssignments
@@ -719,11 +718,14 @@ partial def optimizeMatchAlt
   (args : Array Expr) (mInfo : MatchInfo) (altIdx : Nat) (rhs : Expr)
   (stack : List OptimizeStack) : TranslateEnvT (List OptimizeStack) := do
   let currIdx := (altIdx - mInfo.getFirstAltPos).toUSize
-  match ← reuseContext? mInfo.nameExpr currIdx with
+  -- NOTE: We need to consider the generic type for context reuse.
+  -- Otherwise, we might instantiate the rhs
+  let matchInst ← mkAppRangeExpr mInfo.nameExpr 0 mInfo.numParams args
+  match ← reuseContext? matchInst currIdx with
   | some reuse =>
        setAndCommitCtx reuse.scope
        let body ← betaLambdaShared rhs reuse.fvars
-       return .InitOptimizeExpr body :: .MatchAltWaitForExpr reuse.fvars (some reuse.scope) currIdx mInfo :: stack
+       return .InitOptimizeExpr body :: .MatchAltWaitForExpr reuse.fvars (some reuse.scope) currIdx matchInst :: stack
   | none =>
        let alts ← getMatchAlts args mInfo
        let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _⟩, _, _, _⟩⟩ ← get
@@ -733,7 +735,7 @@ partial def optimizeMatchAlt
          let body ← betaLambdaShared rhs xs
          let updatedEqCtx ← updateEqMap mInfo lhs args nextCtxId false
          let mscope ← if updatedMCtx || updatedEqCtx then some <$> newCtx else pure none
-         return .InitOptimizeExpr body :: .MatchAltWaitForExpr xs mscope currIdx mInfo :: stack
+         return .InitOptimizeExpr body :: .MatchAltWaitForExpr xs mscope currIdx matchInst :: stack
 
   where
    onlyOnePattern (lhs : Array Expr) (idx : Nat) (onlyOne : Bool) : TranslateEnvT Bool := do

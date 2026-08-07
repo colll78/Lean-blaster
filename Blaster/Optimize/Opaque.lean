@@ -68,6 +68,19 @@ def opaqueFuns : HashSet Name :=
     ``String.length
   ]
 
+
+/-- list of non-opaque rec operators on which normalization rules and constant propagation are applied.
+-/
+def optRecFuns : HashSet Name :=
+  List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
+  [ -- List operators
+    ``List.get?Internal,
+    ``List.length,
+    ``List.reverseAux,
+    ``List.take,
+    ``List.drop
+  ]
+
 /-- list of types for which:
      - LT instance is guaranteed to be irrelexive, anti-symmetric and transitive.
      - LE instance is guaranteed to be reflexive, symmetric and transitive.

@@ -111,7 +111,7 @@ def isTheorem (f : Name) : TranslateEnvT Bool := do
 def isOpaqueFun (f : Name) (args: Array Expr) : TranslateEnvT Bool :=
   return (opaqueFuns.contains f || (← isOpaqueRelational f args))
 
-/-- Same as `isOpaqueFun` expect that `f` is an expression. -/
+/-- Given `f := Expr.const n _` return `true` only when `isOpaqueFun n`. -/
 def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=
   match f with
   | Expr.const n _ => isOpaqueFun n args

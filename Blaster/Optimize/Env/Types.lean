@@ -247,6 +247,11 @@ structure CommonExpr where
   stringMk : Expr
   stringType : Expr
   trueIntro : Expr
+  listDrop : Expr
+  listGetInternal : Expr
+  listLength : Expr
+  listReverseAux : Expr
+  listTake : Expr
 
 /-- A saved optimization-context scope: the parent context id to restore on exit
     and this context's own id. Carried on the optimize stack frames. -/
@@ -417,6 +422,11 @@ private def mkCommonExpr : CommonExpr :=
   , stringMk := mkConst ``String.mk
   , stringType := mkConst ``String
   , trueIntro := mkConst ``True.intro
+  , listDrop := mkConst ``List.drop [levelZero]
+  , listGetInternal := mkConst ``List.get?Internal [levelZero]
+  , listLength := mkConst ``List.length [levelZero]
+  , listReverseAux := mkConst ``List.reverseAux [levelZero]
+  , listTake := mkConst ``List.take [levelZero]
   }
 
 instance : Inhabited MemoizeEnv where

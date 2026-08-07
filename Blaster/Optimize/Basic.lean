@@ -54,8 +54,9 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
               | none => optimizeExprAux (.InitOptimizeExpr t :: .ForallWaitForType n bi b :: i_stack)
 
-          | Expr.app .. =>
-             let (f, ras) := getAppFnWithArgs e
+          | Expr.app f a =>
+             let f ← if f.isMVar then getMVarValue f else pure f
+             let (f, ras) := getAppFnWithArgs (mkApp f a)
              -- check if f is a lambda term
              if f.isLambda then
                -- perform beta reduction and apply optimization
@@ -86,9 +87,14 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
       | Sum.inr (Sum.inr e') => return e'
       | Sum.inr (Sum.inl stack') => optimizeExprAux stack'
 
-  | s@(.InitOpaqueRecExpr ..) :: xs
-  | s@(.RecFunDefStorage ..) :: xs =>
-        match (← normOpaqueAndRecFun s xs) with
+  | .RecFunDefStorage uargs instApp subsInst params optDef startCtxId :: xs =>
+        uncacheFunName instApp
+        -- clean-up rewrite cache
+        freeRewriteCacheRange startCtxId (← get).optEnv.options.nextCtxId
+        -- trace[Optimize.recFun] "optimized rec body for {reprStr subsInst} got {reprStr optDef}"
+        let fn' ← storeRecFunDef subsInst params optDef
+        -- trace[Optimize.recFun] "rec function instance {reprStr subsInst} is equivalent to {reprStr fn'}"
+        match (← finalizeRecApp subsInst fn' uargs params xs) with
         | Sum.inr e => return e
         | Sum.inl stack' => optimizeExprAux stack'
 
@@ -158,16 +164,6 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
            match (← optimizeIfThenElse? f args xs) with
            | Sum.inr e' => return e'
            | Sum.inl stack' => optimizeExprAux stack'
-         -- try to reduce app if all params are constructors
-         else if let some re ← reduceApp? f args then
-           match re with
-           | Sum.inl e =>
-              match (← stackContinuity xs e) with
-              | Sum.inr e' => return e'
-              | Sum.inl stack' => optimizeExprAux stack'
-           | Sum.inr be =>
-               -- trace[Optimize.reduceApp] "application reduction {reprStr f} {reprStr args} => {reprStr re}"
-               optimizeExprAux (.InitOptimizeExpr be.betaReduced be.prevMVarIdDecls :: xs)
          -- unfold non-recursive and non-opaque functions
          -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
          -- NOTE: we can only unfold once all parameters have been optimized.
@@ -179,7 +175,10 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
            -- trace[Optimize.normPartial] "normalizing partial function {reprStr f} {reprStr args} => {reprStr pe}"
            optimizeExprAux (.InitOptimizeExpr pe :: xs)
          -- applying optimization on opaque rec function and app and proceed with fun propagation rules
-         else optimizeExprAux (.InitOpaqueRecExpr f args :: xs)
+         else
+           match (← optimizeApp f args xs) with
+           | Sum.inr e' => return e'
+           | Sum.inl stack' => optimizeExprAux stack'
        else if idx < pInfo.paramsInfo.size
             then if pInfo.paramsInfo[idx]!.isExplicit
                  then optimizeExprAux (← optimizeExplicitArgs f args idx stopIdx pInfo mInfo prevInApp stack xs)
@@ -283,16 +282,18 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
            optimizeMatchAlt args argInfo idx currArg stack
          else return (.InitOptimizeExpr currArg :: stack)
       else if pInfo.paramsInfo[idx]!.isProp && (currArg.isFVar || (← isNotFun currArg.getAppFn)) then
+          -- need to instantiate all MVars
+          let currArg ← instantiateSharedMVars currArg
           -- NOTE: We don't optimize proof arguments. We only do proof reconstruction when arg type differs
           let argType ← inferArgTypeAt pInfo.type args idx
           match (← inHypMap argType) with
           | some p =>
               if exprEq p currArg then
-                return (.AppOptimizeExplicitArgs f args (idx + 1) stopIdx pInfo mInfo prevInApp :: nxtStack)
+                return (.AppOptimizeExplicitArgs f (args.set! idx currArg) (idx + 1) stopIdx pInfo mInfo prevInApp :: nxtStack)
               else
                 return (.AppOptimizeExplicitArgs f (args.set! idx p) (idx + 1) stopIdx pInfo mInfo prevInApp :: nxtStack)
           | none => -- TODO: add backward proof reconstruction
-             return (.AppOptimizeExplicitArgs f args (idx + 1) stopIdx pInfo mInfo prevInApp :: nxtStack)
+             return (.AppOptimizeExplicitArgs f (args.set! idx currArg) (idx + 1) stopIdx pInfo mInfo prevInApp :: nxtStack)
       else return (.InitOptimizeExpr currArg :: stack)
 
 
@@ -315,8 +316,10 @@ def cacheOpaqueRecFun : TranslateEnvT Unit := do
   callOptimize commonExpr.intPow
 
  where
-   callOptimize (e : Expr) : TranslateEnvT Unit :=
-     discard $ optimizeExprAux [.InitOpaqueRecExpr e #[]]
+   callOptimize (e : Expr) (params := #[]) : TranslateEnvT Unit := do
+     match ← normRecFun e params e [] with
+     | Sum.inr _ => return ()
+     | Sum.inl stack' => discard $ optimizeExprAux stack'
 
 
 /-- Perform the following actions:

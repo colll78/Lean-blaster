@@ -110,17 +110,15 @@ def normChoiceApplication?
     Assume that `fn` is a function (i.e., does not satisfy predicate isNotFun) or `fn` is a Ctor.
 -/
 def funPropagation?
-  (cf : Expr) (cargs : Array Expr) (prevInApp : Bool) (skipPropCheck := false)
+  (cf : Expr) (cargs : Array Expr) (prevInApp : Bool)
   (reorderArgs := false) (resolveArgs := false) : TranslateEnvT (Option OptimizeStack) := do
   match cf with
   | Expr.const n _ =>
-      if skipPropCheck then loop 0 cargs.size cargs
-      else
-        if n == ``Blaster.dite' then return none
-        if !(← propagate cf n cargs) then return none
-        if reorderArgs
-        then loop 0 cargs.size (← reorderOperands cf cargs)
-        else loop 0 cargs.size cargs
+      if n == ``Blaster.dite' then return none
+      if !(← propagate cf n cargs) then return none
+      if reorderArgs
+      then loop 0 cargs.size (← reorderOperands cf cargs)
+      else loop 0 cargs.size cargs
   | _ => return none
 
   where
