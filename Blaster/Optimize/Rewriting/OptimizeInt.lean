@@ -529,7 +529,7 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
-     - (n / N1) / N2 ==> n / (N1 "*" N2) (only valid for Int.tdiv)
+     - (n / N1) / N2 ==> n / (N1 "*" N2) (only valid for Int.tdiv) [proof: Blaster.int_tdiv_mul_lit]
      - (N1 * n) / N2 ===> ((N1 "/" Int.gcd N1 N2) * n) / (N2 "/" Int.gcd N1 N2) (if N2 ≠ 0 ∧ Int.gcd N1 N2 ≠ 1)
    Assume that f = Expr.const ``Int.tdiv.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.tdiv` expected at this stage)
