@@ -236,6 +236,11 @@ protected theorem int_add_lt_zero_eq_true_of_neg_nonpos (x y : Int) (hx : x < 0)
 protected theorem int_lt_false_of_not_pred_lt (n e : Int) (h : ¬ (n - 1 < e)) :
     (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
 
+/-! Lemma to validate simplification rule `(n /ₜ N1) /ₜ N2 ==> n /ₜ (N1 * N2)` -/
+protected theorem int_tdiv_mul_lit (n N1 N2 : Int) :
+    Int.tdiv (Int.tdiv n N1) N2 = Int.tdiv n (N1 * N2) := by
+  sorry
+
 def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
 
 def mkInt_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_right_of_eq)
