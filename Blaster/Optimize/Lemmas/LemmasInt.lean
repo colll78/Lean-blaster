@@ -239,7 +239,13 @@ protected theorem int_lt_false_of_not_pred_lt (n e : Int) (h : ¬ (n - 1 < e)) :
 /-! Lemma to validate simplification rule `(n /ₜ N1) /ₜ N2 ==> n /ₜ (N1 * N2)` -/
 protected theorem int_tdiv_mul_lit (n N1 N2 : Int) :
     Int.tdiv (Int.tdiv n N1) N2 = Int.tdiv n (N1 * N2) := by
-  sorry
+  rcases Int.eq_nat_or_neg n with ⟨a, ha | ha⟩ <;>
+  rcases Int.eq_nat_or_neg N1 with ⟨b, hb | hb⟩ <;>
+  rcases Int.eq_nat_or_neg N2 with ⟨c, hc | hc⟩ <;>
+  rw [ha, hb, hc] <;>
+  simp only [Int.neg_tdiv, Int.tdiv_neg, Int.neg_mul, Int.mul_neg, Int.neg_neg,
+    ← Int.natCast_ediv, Int.natCast_tdiv_eq_ediv, ← Int.natCast_mul,
+    Nat.div_div_eq_div_mul]
 
 def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
 

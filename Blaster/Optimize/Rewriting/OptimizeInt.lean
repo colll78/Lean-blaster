@@ -553,7 +553,9 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    cstTDivProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      let some (e1, n) := intTDiv? op1 | return none
      match isIntValue? n, isIntValue? op2 with
-     | some n1, some n2 => return (mkApp2 f e1 (← evalBinIntOp Int.mul n1 n2))
+     | some n1, some n2 =>
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_tdiv_mul_lit) e1 n op2))
+       return (mkApp2 f e1 (← evalBinIntOp Int.mul n1 n2))
      | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `Int.tmod` :

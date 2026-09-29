@@ -132,6 +132,14 @@ elab "intDivCst_2" : term => return intDivCst_2
 
 /-! Test cases for `(n /ₜ N1) /ₜ N2 ===> n /ₜ (N1 * N2)` -/
 
-#testOptimize ["IntTdivMulLit_1"] ∀ (n : Int), Int.tdiv (Int.tdiv n 5) 3 = Int.tdiv n 15 ===> True
+#testOptimize ["IntTdivMulLit_1", proof] ∀ (n : Int), Int.tdiv (Int.tdiv n 5) 3 = Int.tdiv n 15 ===> True
+
+#testOptimize ["IntTdivMulLit_2", proof] ∀ (n : Int), Int.tdiv (Int.tdiv n (-5)) 3 = Int.tdiv n (-15) ===> True
+
+#testOptimize ["IntTdivMulLit_3", proof] ∀ (n : Int), Int.tdiv (Int.tdiv n 5) (-3) = Int.tdiv n (-15) ===> True
+
+#testOptimize ["IntTdivMulLit_4", proof] ∀ (n : Int), Int.tdiv (Int.tdiv n (-5)) (-3) = Int.tdiv n 15 ===> True
+
+#testOptimize ["IntTdivMulLit_5", proof] ∀ (n : Int), Int.tdiv (Int.tdiv (Int.tdiv n 2) 3) 1 = Int.tdiv n 6 ===> True
 
 end Tests.OptimizeIntDiv
