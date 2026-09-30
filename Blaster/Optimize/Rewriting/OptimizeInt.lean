@@ -225,16 +225,18 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
    /-- Emit the proof step for n / n ==> 1 (requires n ≠ 0). -/
    emitEDivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
      if let some h ← findNeZeroIntProof? n then
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.ediv_self) n h))
+       let h' ← mkAppM ``Ne.symm #[h]
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.ediv_self) n h'))
 
    /-- Emit the proof step for (m * n) / n ==> m or (n * m) / n ==> m (requires n ≠ 0). -/
    emitMulEDivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
      let some (a, b) := intMul? op1 | return ()
      let some h ← findNeZeroIntProof? op2 | return ()
+     let h' ← mkAppM ``Ne.symm #[h]
      if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel) a op2 h))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel) a op2 h'))
      else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel_left) op2 b h))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel_left) op2 b h'))
 
 /- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
    and `dk` the corresponding `DivKind` (yielding the divisor operator `f_div`),
