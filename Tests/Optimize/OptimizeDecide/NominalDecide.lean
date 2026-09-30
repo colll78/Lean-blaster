@@ -11,128 +11,128 @@ namespace Test.NominalDecide
 /-! Test cases for simplification rule `decide False ==> false` -/
 
 -- decide False ===> false
-#testOptimize [ "DecideFalse_1" ] decide False ===> false
+#testOptimize [ "DecideFalse_1", proof ] decide False ===> false
 
 -- decide (¬ True) ===> false
-#testOptimize [ "DecideFalse_2" ] decide (¬ True) ===> false
+#testOptimize [ "DecideFalse_2", proof ] decide (¬ True) ===> false
 
 -- decide (False ∧ True) ===> false
-#testOptimize [ "DecideFalse_3" ] decide (False ∧ True) ===> false
+#testOptimize [ "DecideFalse_3", proof ] decide (False ∧ True) ===> false
 
 -- decide (true = false) ===> false
-#testOptimize [ "DecideFalse_4" ] decide (true = false) ===> false
+#testOptimize [ "DecideFalse_4", proof ] decide (true = false) ===> false
 
 -- ∀ (a : Prop), [Decidable a] → (a ∧ False) = false ===> True
-#testOptimize [ "DecideFalse_5" ] ∀ (a : Prop), [Decidable a] → (a ∧ False) = false ===> True
+#testOptimize [ "DecideFalse_5", proof ] ∀ (a : Prop), [Decidable a] → (a ∧ False) = false ===> True
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → ((a ∧ False) ∧ b) = false ===> True
-#testOptimize [ "DecideFalse_6" ]
+#testOptimize [ "DecideFalse_6", proof ]
   ∀ (a b : Prop), [Decidable a] → [Decidable b] → ((a ∧ False) ∧ b) = false ===> True
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∧ (b ∧ ¬ b)) = false ===> True
-#testOptimize [ "DecideFalse_7" ]
+#testOptimize [ "DecideFalse_7", proof ]
   ∀ (a b : Prop), [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∧ (b ∧ ¬ b)) = false ===> True
 
 -- ∀ (a b : Prop),
 --  [Decidable a] → [Decidable b] → [Decidable c] →
 --  (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) = false ===> True
-#testOptimize [ "DecideFalse_8" ]
+#testOptimize [ "DecideFalse_8", proof ]
   ∀ (a b c : Prop), [Decidable a] → [Decidable b] → [Decidable c] →
       (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) = false ===> True
 
 -- ∀ (a : Bool), (a = !a) = false ===> True
-#testOptimize [ "DecideFalse_9" ] ∀ (a : Bool), (a = !a) = false ===> True
+#testOptimize [ "DecideFalse_9", proof ] ∀ (a : Bool), (a = !a) = false ===> True
 
 -- decide (List.nil = [1, 2, 3, 4]) ===> false
-#testOptimize [ "DecideFalse_10" ] decide (List.nil = [1, 2, 3, 4]) ===> false
+#testOptimize [ "DecideFalse_10", proof ] decide (List.nil = [1, 2, 3, 4]) ===> false
 
 variable (a : Nat)
 variable (b : Nat)
 variable (c : Nat)
 -- decide (List.nil = [a, b, c]) ===> false
-#testOptimize [ "DecideFalse_11" ] decide (List.nil = [a, b, c]) ===> false
+#testOptimize [ "DecideFalse_11", proof ] decide (List.nil = [a, b, c]) ===> false
 
 -- ∀ (x y z : Int), ([x, y] = [x, y, z]) = false ===> True
 #testOptimize [ "DecideFalse_12" ] ∀ (x y z : Int), ([x, y] = [x, y, z]) = false ===> True
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → (b ∧ ¬ b) && a ===> False
 -- NOTE: `(b ∧ ¬ b) && a` is represented as `decide (b ∧ ¬ b) && (decide a)`
-#testOptimize [ "DecideFalse_13" ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → (b ∧ ¬ b) && a ===> False
+#testOptimize [ "DecideFalse_13", proof ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → (b ∧ ¬ b) && a ===> False
 
 
 -- ∀ (a : Bool) (b : Prop), [Decidable b] → (b ∧ ¬ b) && a ===> False
 -- NOTE: `(b ∧ ¬ b) && a` is represented as `decide (b ∧ ¬ b) && a`
-#testOptimize [ "DecideFalse_14" ] ∀ (a : Bool) (b : Prop), [Decidable b] → (b ∧ ¬ b) && a ===> False
+#testOptimize [ "DecideFalse_14", proof ] ∀ (a : Bool) (b : Prop), [Decidable b] → (b ∧ ¬ b) && a ===> False
 
 
 -- ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∧ (b ∧ ¬ b)) && c ===> False
-#testOptimize [ "DecideFalse_15" ] ∀ (a b : Prop) (c : Bool),
+#testOptimize [ "DecideFalse_15", proof ] ∀ (a b : Prop) (c : Bool),
                                    [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∧ (b ∧ ¬ b)) && c ===> False
 
 
 /-! Test cases for simplification rule `decide True ==> true` -/
 
 -- decide True ===> true
-#testOptimize [ "DecideTrue_1" ] decide True ===> true
+#testOptimize [ "DecideTrue_1", proof ] decide True ===> true
 
 -- decide (¬ False) ===> true
-#testOptimize [ "DecideTrue_2" ] decide (¬ False) ===> true
+#testOptimize [ "DecideTrue_2", proof ] decide (¬ False) ===> true
 
 -- decide (True ∧ True) ===> true
-#testOptimize [ "DecideTrue_3" ] decide (True ∧ True) ===> true
+#testOptimize [ "DecideTrue_3", proof ] decide (True ∧ True) ===> true
 
 -- decide (True ∨ False) ===> true
-#testOptimize [ "DecideTrue_4" ] decide (True ∨ False) ===> true
+#testOptimize [ "DecideTrue_4", proof ] decide (True ∨ False) ===> true
 
 -- decide (true = true) ===> true
-#testOptimize [ "DecideTrue_5" ] decide (true = true) ===> true
+#testOptimize [ "DecideTrue_5", proof ] decide (true = true) ===> true
 
 -- ∀ (a : Prop), [Decidable a] → (a ∨ True) = true ===> True
-#testOptimize [ "DecideTrue_6" ] ∀ (a : Prop), [Decidable a] → (a ∨ True) = true ===> True
+#testOptimize [ "DecideTrue_6", proof ] ∀ (a : Prop), [Decidable a] → (a ∨ True) = true ===> True
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → (a ∨ True ∨ b) = true ===> True
-#testOptimize [ "DecideTrue_7" ] ∀ (a b : Prop),
+#testOptimize [ "DecideTrue_7", proof ] ∀ (a b : Prop),
                                     [Decidable a] → [Decidable b] → (a ∨ True ∨ b) = true ===> True
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∨ (b ∧ ¬ b)) = true ===> True
-#testOptimize [ "DecideTrue_8" ] ∀ (a b : Prop),
+#testOptimize [ "DecideTrue_8", proof ] ∀ (a b : Prop),
                                    [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∨ (b ∧ ¬ b)) = true ===> True
 
 -- ∀ (a b : Prop),
 --  [Decidable a] → [Decidable b] → [Decidable c] →
 --  (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ¬a) ∨ ((b ∧ a) ∧ c)) = true ===> True
-#testOptimize [ "DecideTrue_9" ] ∀ (a b c : Prop),
+#testOptimize [ "DecideTrue_9", proof ] ∀ (a b c : Prop),
                                   [Decidable a] → [Decidable b] → [Decidable c] →
                                   (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ¬a) ∨ ((b ∧ a) ∧ c)) = true ===> True
 
 -- ∀ (a : Bool), decide (a = a) = true ===> True
-#testOptimize [ "DecideTrue_10" ] ∀ (a : Bool), decide (a = a) = true ===> True
+#testOptimize [ "DecideTrue_10", proof ] ∀ (a : Bool), decide (a = a) = true ===> True
 
 -- decide ((List.nil : List Int) = List.nil) ===> false
-#testOptimize [ "DecideTrue_11" ] decide ((List.nil : List Int) = List.nil) ===> true
+#testOptimize [ "DecideTrue_11", proof ] decide ((List.nil : List Int) = List.nil) ===> true
 
 -- decide ( [a, b, c] = [a, b, c]) ===> true
-#testOptimize [ "DecideTrue_12" ] decide ([a, b, c] = [a, b, c]) ===> true
+#testOptimize [ "DecideTrue_12", proof ] decide ([a, b, c] = [a, b, c]) ===> true
 
 -- ∀ (x y z : Int), ([x, y, z] = [x, y, z]) = true ===> True
-#testOptimize [ "DecideTrue_13" ] ∀ (x y z : Int), ([x, y, z] = [x, y, z]) = true ===> True
+#testOptimize [ "DecideTrue_13", proof ] ∀ (x y z : Int), ([x, y, z] = [x, y, z]) = true ===> True
 
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → (b ∨ ¬ b) && a ===> ∀ (a : Prop), a
 -- NOTE: `(b ∨ ¬ b) && a` is represented as `decide (b ∨ ¬ b) && (decide a)`
 -- NOTE: simplification also via rule `true = decide e ===> e`
-#testOptimize [ "DecideTrue_14" ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → (b ∨ ¬ b) && a ===>
+#testOptimize [ "DecideTrue_14", proof ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → (b ∨ ¬ b) && a ===>
                                   ∀ (a : Prop), a
 
 
 -- ∀ (a : Bool) (b : Prop), [Decidable b] → (b ∨ ¬ b) && a ===> ∀ (a : Bool), true = a
 -- NOTE: `(b ∨ ¬ b) && a` is represented as `decide (b ∨ ¬ b) && a`
-#testOptimize [ "DecideTrue_15" ] ∀ (a : Bool) (b : Prop), [Decidable b] → (b ∨ ¬ b) && a ===>
+#testOptimize [ "DecideTrue_15", proof ] ∀ (a : Bool) (b : Prop), [Decidable b] → (b ∨ ¬ b) && a ===>
                                   ∀ (a : Bool), true = a
 
 -- ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∧ (b ∧ ¬ b)) || c ===>
 -- ∀ (c : Bool), true = c
-#testOptimize [ "DecideTrue_16" ] ∀ (a b : Prop) (c : Bool),
+#testOptimize [ "DecideTrue_16", proof ] ∀ (a b : Prop) (c : Bool),
                                    [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∧ (b ∧ ¬ b)) || c ===>
                                   ∀ (c : Bool), true = c
 
@@ -275,10 +275,10 @@ variable (q : Bool)
                                        ∀ (x y z : Int) (xs : List Int), [x, y, z] = xs
 
 -- decide (q = !(!(!(!p)))) ===> Blaster.decide' (q = !p)
-#testOptimize [ "DecideUnchanged_10" ] decide (q = (!(!(!p)))) ===> Blaster.decide' (q = !p)
+#testOptimize [ "DecideUnchanged_10", proof ] decide (q = (!(!(!p)))) ===> Blaster.decide' (q = !p)
 
 -- decide (q = !(!(!(!p)))) ===> Blaster.decide' (p = q)
-#testOptimize [ "DecideUnchanged_11" ] decide (q = !(!(!(!p)))) ===> Blaster.decide' (p = q)
+#testOptimize [ "DecideUnchanged_11", proof ] decide (q = !(!(!(!p)))) ===> Blaster.decide' (p = q)
 
 
 /-! Proof reconstruction tests for the eliminative decide' cases -/
