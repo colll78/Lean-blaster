@@ -171,22 +171,21 @@ protected theorem nat_lt_false_of_not_pred_lt (n e : Nat) (h : ¬ (n - 1 < e)) :
 /-! ## Lemmas for validating the hypothesis-context `OptimizeEq` reductions on `Nat`:
   - `0 = x * y ==> False (if x ≠ 0 ∧ y ≠ 0)` -/
 
-protected theorem nat_zero_lt_imp_zero_neq (e: Nat) (h : 0 < e): e ≠ 0 := by
-  exact Nat.ne_zero_of_lt h
-
-protected theorem nat_mul_eq_false_of_ne (a b : Nat) (h : a ≠ 0 ∧ b ≠ 0) :
+protected theorem nat_mul_eq_false_of_ne (a b : Nat) (h1: ¬ (0 = a)) (h2 : ¬ (0 = b)) :
   (0 = a * b) = False := by
   apply propext
   rw [iff_false, ← ne_eq]
-  exact (Nat.mul_ne_zero h.1 h.2).symm
+  have h1 : a ≠ 0 := Ne.symm h1
+  have h2 : b ≠ 0 := Ne.symm h2
+  exact (Nat.mul_ne_zero h1 h2).symm
 
-protected theorem nat_add_eq_false_of_ne_fst (a b : Nat) (h : a ≠ 0) :
+protected theorem nat_add_eq_false_of_ne_fst (a b : Nat) (h : ¬ (0 = a)) :
   (0 = a + b) = False := by
   apply propext
   rw [iff_false, ← ne_eq]
   omega
 
-protected theorem nat_add_eq_false_of_ne_snd (a b : Nat) (h : b ≠ 0) :
+protected theorem nat_add_eq_false_of_ne_snd (a b : Nat) (h : ¬ (0 = b)) :
   (0 = a + b) = False := by
   apply propext
   rw [iff_false, ← ne_eq]

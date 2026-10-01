@@ -6,8 +6,8 @@ namespace Blaster.Optimize
 
 
 /-- Proof returning companion to `nonZeroIntInHyps` for a non-literal `e`: when an hypothesis entailing
-    `e ≠ 0` (stored as `0 < e`, `e < 0`, or `¬ (0 = e)`) is in the context, returns its proof;
-    for a non-zero literal `N` returns a decide proof of `N ≠ 0`;
+    `0 ≠ e` (stored as `0 < e`, `e < 0`, or `¬ (0 = e)`) is in the context, returns its proof;
+    for a non-zero literal `N` returns a decide proof of `0 ≠ N`;
     otherwise none.
 -/
 def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
@@ -16,25 +16,23 @@ def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
   | .some n =>
     let zero_lit ← mkIntLitExpr 0
     let N ← mkIntLitExpr n
-    let eq ← mkEq N zero_lit
+    let eq ← mkEq zero_lit N
     return ← mkOfDecideEqProof eq false
   | _ =>
     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
     let zero_int ← mkIntLitExpr 0
     let zero_lt ← mkIntLtExpr zero_int e
     if let some p := hyps.get? zero_lt then
-      return mkApp2 (mkConst ``Blaster.int_ne_zero_of_zero_lt) e p
+      return mkApp2 (mkConst ``Blaster.int_not_zero_eq_of_lt_zero) e p
     let zero_gt ← mkIntLtExpr e zero_int
     if let some p := hyps.get? zero_gt then
-      return mkApp2 (mkConst ``Blaster.int_ne_zero_of_lt_zero) e p
+      return mkApp2 (mkConst ``Blaster.int_not_zero_eq_of_zero_lt) e p
     let zero_eq ← mkIntEqExpr zero_int e
-    if let some p := hyps.get? (mkApp (← mkPropNotOp) zero_eq) then
-      return some (← mkAppM ``Blaster.int_ne_zero_of_not_zero_eq #[p])
-    return none
+    return hyps.get? (mkApp (← mkPropNotOp) zero_eq)
 
 /-- Proof-returning companion to `nonZeroNatInHyps` for a non-literal `e`: when a hypothesis
-  entailing `e ≠ 0` (stored as `0 < e` or `0 ≠ e`) is in the context, return its proof;
-  for a non-zero literal `N` returns a decide proof of `N ≠ 0`;
+  entailing `0 ≠ e` (stored as `0 < e` or `0 ≠ e`) is in the context, return its proof;
+  for a non-zero literal `N` returns a decide proof of `0 ≠ N`;
   otherwise `none`.
 -/
 def findNeZeroNatProof? (e : Expr) : TranslateEnvT (Option Expr) := do
@@ -43,18 +41,16 @@ def findNeZeroNatProof? (e : Expr) : TranslateEnvT (Option Expr) := do
     | .some n =>
       let zero_lit ← mkNatLitExpr 0
       let N ← mkNatLitExpr n
-      let eq ← mkEq N zero_lit
+      let eq ← mkEq zero_lit N
       return ← mkOfDecideEqProof eq false
     | _ =>
       let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
       let zero_nat ← mkNatLitExpr 0
       let zero_lt ← mkNatLtExpr zero_nat e
       if let some p := hyps.get? zero_lt then
-        return mkApp2 (mkConst ``Blaster.nat_zero_lt_imp_zero_neq) e p
+        return mkApp2 (mkConst ``Blaster.nat_not_zero_eq_of_zero_lt) e p
       let zero_eq ← mkNatEqExpr zero_nat e
-      if let some p := hyps.get? (mkApp (← mkPropNotOp) zero_eq) then
-        return some (← mkAppM ``Ne.symm #[p])
-      return none
+      return hyps.get? (mkApp (← mkPropNotOp) zero_eq)
 
 /-- Return `some true` if op1 and op2 are constructors that are structurally equivalent modulo
     variable name/function equivalence
@@ -139,10 +135,11 @@ def zeroEqNegReduce? (op1 : Expr) (op2 : Expr) (eqType : Expr) : TranslateEnvT (
 def natZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match isNatValue? op1, natMul? op2 with
   | some 0, some (e1, e2) =>
-      if let (some p1 , some p2) :=  (← findNeZeroNatProof? e1, ← findNeZeroNatProof? e2) then
-        let conj ← mkAppM ``And.intro #[p1, p2]
-        pushProofStep (.rewrite (← mkAppM ``Blaster.nat_mul_eq_false_of_ne #[e1 , e2 , conj]))
-        mkPropFalse
+      if let some p1 ← findNeZeroNatProof? e1 then
+        if let some p2 ← findNeZeroNatProof? e2 then
+          pushProofStep (.rewrite (← mkAppM ``Blaster.nat_mul_eq_false_of_ne #[e1 , e2 , p1, p2]))
+          return ← mkPropFalse
+        return none
       else return none
   | _, _ => return none
 
@@ -154,11 +151,11 @@ def natZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) 
 def intZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? op1, intMul? op2 with
   | some 0, some (e1, e2) =>
-       if let (some p1, some p2) := (← findNeZeroIntProof? e1, ← findNeZeroIntProof? e2)
-       then
-          let conj ← mkAppM ``And.intro #[p1, p2]
-          pushProofStep (.rewrite (← mkAppM ``Blaster.int_mul_eq_false_of_ne #[e1, e2, conj]))
-          mkPropFalse
+       if let some p1 ← findNeZeroIntProof? e1 then
+         if let some p2 ← findNeZeroIntProof? e2 then
+           pushProofStep (.rewrite (← mkAppM ``Blaster.int_mul_eq_false_of_ne #[e1 , e2 , p1, p2]))
+           return ← mkPropFalse
+         return none
        else return none
   | _, _ => return none
 
@@ -492,13 +489,13 @@ def addIntEqZeroReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
   let some (e1, e2) := intAdd? op2 | return none
   match isIntValue? op1 with
   | some 0 =>
-      if let (some p1, some p2) := (← gtZeroIntInHypsProof e1 , ← gtZeroIntInHypsProof e2) then
-        let conj ← mkAppM ``And.intro #[p1, p2]
-        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_eq_false_of_gt #[e1, e2, conj]))
-        return ← mkPropFalse
+      if let some p1 := ← gtZeroIntInHypsProof e1  then
+        if let some p2 := ← gtZeroIntInHypsProof e2 then
+          pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_eq_false_of_gt #[e1, e2, p1, p2]))
+          return ← mkPropFalse
+        return none
       if let (some p1, some p2) := (← ltZeroIntInHypsProof e1 , ← ltZeroIntInHypsProof e2) then
-        let conj ← mkAppM ``And.intro #[p1, p2]
-        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_eq_false_of_lt #[e1, e2, conj]))
+        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_eq_false_of_lt #[e1, e2, p1, p2]))
         return ← mkPropFalse
       return none
   | _ => return none
