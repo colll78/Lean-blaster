@@ -295,4 +295,16 @@ variable (q : Bool)
 -- Blaster.decide' (false = p) ===> !p
 #testOptimize [ "Decide'EqFalse_1", proof ] Blaster.decide' (false = q) ===> !q
 
+
+/-! Proof reconstruction tests for the `decide` to `decide'` bridge -/
+
+-- ∀ (x y : Nat), decide (x * 2 ≤ y) = decide (x * 2 ≤ y * 1) ===> True
+#testOptimize [ "DecideBridge_1", proof ] ∀ (x y : Nat), decide (x * 2 ≤ y) = decide (x * 2 ≤ y * 1) ===> True
+
+-- ∀ (y : Nat), (∃ x : Nat, decide (Nat.add x 1 > y) = true) =
+--              (∃ x : Nat, decide (Nat.add x 1 > y) = true) ===> True
+#testOptimize [ "DecideBridge_2", proof ]
+  ∀ (y : Nat), (∃ x : Nat, decide (Nat.add x 1 > y) = true) =
+               (∃ x : Nat, decide (Nat.add x 1 > y) = true) ===> True
+
 end Test.NominalDecide

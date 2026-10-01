@@ -62,7 +62,8 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                else if f.isConstOf ``Nat.pred && ras.size == 1 then
                  pushProofStep (.rewrite (mkApp (mkConst ``Nat.pred_eq_sub_one) ras[0]!))
                else if f.isConstOf ``Decidable.decide && ras.size == 2 then
-                 pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.decide_eq_decide') ras[0]! ras[1]!))
+                 -- no operands: on replay they may be already rewritten or bound by an inner binder
+                 pushProofStep (.rewrite (mkConst ``Blaster.decide_eq_decide'))
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
                let i_stack' := .AppWaitForConst ras :: i_stack
