@@ -308,7 +308,7 @@ def intEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      if n == 0 then return none
      if !(exprEq e2 op2) then return none
      let zero := mkIntLit 0
-     let eqZero ← mkEq e1 zero
+     let eqZero ← mkEq zero e1
      let reflFalse := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.false)
      let hNe ← mkAppOptM ``of_decide_eq_false #[some eqZero, none, some reflFalse]
      let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2, some op1]
@@ -346,7 +346,7 @@ def natEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      if n == 0 then return none
      if !(exprEq e2 op2) then return none
      let zero := mkNatLit 0
-     let eqZero ← mkEq e1 zero
+     let eqZero ← mkEq zero e1
      let reflFalse := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.false)
      let hNe ← mkAppOptM ``of_decide_eq_false #[some eqZero, none, some reflFalse]
      let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
@@ -515,9 +515,11 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
      let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2, some op1]
      let bridge ← mkAppM ``propext #[commIff]
      pushProofStep (.rewrite bridge)
-     pushProofStep (.rewrite (← mkAppM ``Blaster.int_sub_of_eq_add #[op1, e1, e2]))
+     let m ← evalBinIntOp Int.sub n1 n2
+     let refl := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) m
+     pushProofStep (.rewrite (← mkAppM ``Blaster.int_sub_of_eq_add #[op1, e1, e2, m, refl]))
      setRestart -- restart necessary
-     mkIntEqExpr (← evalBinIntOp Int.sub n1 n2) e2
+     mkIntEqExpr m e2
  | _ =>
    let some (p1, p2) := intAdd? op1 | return none
    let some n1 := isIntValue? p1 | return none

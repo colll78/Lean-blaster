@@ -774,12 +774,20 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "EqAddNatLit_1", proof ]
   ∀ (a : Nat), (5 = 2 + a) = (5 - 2 = a) ===> True
 
--- ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
+-- ∀ (a : Nat), (5 = 2 + a) = (3 = a) ===> True
 #testOptimize [ "EqAddNatLit_2", proof ]
+  ∀ (a : Nat), (5 = 2 + a) = (3 = a) ===> True
+
+-- ∀ (a : Nat), ¬ (5 = 2 + a) ∨  (a = 3) ===> True
+#testOptimize [ "EqAddNatLit_3", proof ]
+  ∀ (a : Nat), ¬ (5 = 2 + a) ∨  (a = 3) ===> True
+
+-- ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
+#testOptimize [ "EqAddNatLit_4", proof ]
   ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
 
 -- ∀ (a b : Nat), (2 + a = 5 + b) = (2 - 2 + a = 5 - 2 + b) ===> True
-#testOptimize [ "EqAddNatLit_3", proof]
+#testOptimize [ "EqAddNatLit_5", proof]
   ∀ (a b : Nat), (2 + a = 5 + b) = (2 - 2 + a = 5 - 2 + b) ===> True
 
 -- ∀ (a : Int), (5 = 2 + a) = (5 - 2 = a) ===> True
@@ -797,6 +805,10 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- ∀ (a b : Int), (-1 + a = 5 + b) = (-1 + 1 + a = 5 + 1 + b) ===> True
 #testOptimize [ "EqAddIntLit_4", proof]
   ∀ (a b : Int), (-1 + a = 5 + b) = (0 + a = 6 + b) ===> True
+
+-- ∀ (a : Int), ¬ (5 = 2 + a) ∨ a = 3 ===> True
+#testOptimize [ "EqAddIntLit_5", proof]
+  ∀ (a : Int), ¬ (5 = 2 + a) ∨ a = 3 ===> True
 
 -- ∀ (y : Int), 0 < y → (0 = 5 + y) = False ===> True
 #testOptimize [ "ZeroIntAddEqLits_1", proof ]

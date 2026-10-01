@@ -289,17 +289,19 @@ protected theorem int_add_lft_eq_add (x y z: Int) : (y + x = x + z) = (y = z) :=
 protected theorem int_add_lft_eq_add_lft (x y z: Int) : (y + x = z + x) = (y = z) := by
   simp only [Int.add_left_inj]
 
-protected theorem  int_add_left_eq_false (e N : Int) (h : N ≠ 0) : (N + e = e) = False := by
+protected theorem  int_add_left_eq_false (e N : Int) (h : ¬ (0 = N)) : (N + e = e) = False := by
   apply propext
   rw [iff_false]
   omega
 
-protected theorem int_add_right_eq_false (x y : Int) (h : y ≠ 0) : (x + y = x) = False := by
+protected theorem int_add_right_eq_false (x y : Int) (h : ¬ (0 = y)) : (x + y = x) = False := by
   apply propext
   rw [iff_false]
   omega
 
-protected theorem int_sub_of_eq_add (N1 N2 a : Int) : (N1 = N2 + a) = (N1 - N2 = a) := by
+protected theorem int_sub_of_eq_add (N1 N2 a M: Int) (h : N1 - N2 = M) :
+  (N1 = N2 + a) = (M = a) := by
+  subst h
   apply propext
   omega
 
@@ -317,22 +319,26 @@ protected theorem int_add_with_min (N1 N2 a b M1 M2 : Int)
   - `y * x = x * z ==> y = z (if x ≠ 0)`
 -/
 
-protected theorem int_mul_eq_mul_rgt (x y z : Int) (h : x ≠ 0) : (x * y = x * z) = (y = z) := by
+protected theorem int_mul_eq_mul_rgt (x y z : Int) (h : ¬ (0 = x)) : (x * y = x * z) = (y = z) := by
   apply propext
+  have h : x ≠ 0 := Ne.symm h
   exact Int.mul_eq_mul_left_iff h
 
-protected theorem int_mul_lft_eq_mul_lft (x y z : Int) (h : x ≠ 0) : (y * x = z * x) = (y = z) := by
+protected theorem int_mul_lft_eq_mul_lft (x y z : Int) (h : ¬ (0 = x)) : (y * x = z * x) = (y = z) := by
   apply propext
+  have h : x ≠ 0 := Ne.symm h
   exact Int.mul_eq_mul_right_iff h
 
-protected theorem int_mul_eq_mul_lft (x y z : Int) (h : x ≠ 0) : (x * y = z * x) = (y = z) := by
+protected theorem int_mul_eq_mul_lft (x y z : Int) (h : ¬ (0 = x)) : (x * y = z * x) = (y = z) := by
   apply propext
   rw [Int.mul_comm]
+  have h : x ≠ 0 := Ne.symm h
   exact Int.mul_eq_mul_right_iff h
 
-protected theorem int_mul_lft_eq_mul (x y z : Int) (h : x ≠ 0) : (y * x = x * z) = (y = z) := by
+protected theorem int_mul_lft_eq_mul (x y z : Int) (h : ¬ (0 = x)) : (y * x = x * z) = (y = z) := by
   apply propext
   rw [Int.mul_comm]
+  have h : x ≠ 0 := Ne.symm h
   exact Int.mul_eq_mul_left_iff h
 
 def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)

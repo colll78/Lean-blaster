@@ -215,12 +215,12 @@ protected theorem nat_add_lft_eq_add (x y z: Nat) : (y + x = x + z) = (y = z) :=
 protected theorem nat_add_lft_eq_add_lft (x y z: Nat): (y + x = z + x) = (y = z) := by
   simp only [Nat.add_comm, Nat.add_left_cancel_iff]
 
-protected theorem nat_add_left_eq_false (e N : Nat) (h : N ≠ 0) : (N + e = e) = False := by
+protected theorem nat_add_left_eq_false (e N : Nat) (h : ¬ (0 = N)) : (N + e = e) = False := by
   apply propext
   rw [iff_false]
   omega
 
-protected theorem nat_add_right_eq_false (a b : Nat) (h : b ≠ 0) : (a + b = a) = False := by
+protected theorem nat_add_right_eq_false (a b : Nat) (h : ¬ (0 = b)) : (a + b = a) = False := by
   apply propext
   rw [iff_false]
   omega
@@ -248,20 +248,24 @@ protected theorem nat_add_with_min (N1 N2 a b M1 M2 : Nat)
     - `y * x = z * x ==> y = z (if x ≠ 0)`
 -/
 
-protected theorem nat_mul_eq_mul_rgt (x y z : Nat) (h : x ≠ 0) : (x * y = x * z) = (y = z) := by
+protected theorem nat_mul_eq_mul_rgt (x y z : Nat) (h : ¬ (0 = x)) : (x * y = x * z) = (y = z) := by
   apply propext
+  have h : x ≠ 0 := Ne.symm h
   rw [Nat.mul_right_inj h]
 
-protected theorem nat_mul_eq_mul_lft (x y z : Nat) (h : x ≠ 0) : (x * y = z * x) = (y = z) := by
+protected theorem nat_mul_eq_mul_lft (x y z : Nat) (h : ¬ (0 = x)) : (x * y = z * x) = (y = z) := by
   apply propext
+  have h : x ≠ 0 := Ne.symm h
   rw [Nat.mul_comm, Nat.mul_left_inj h]
 
-protected theorem nat_mul_lft_eq_mul (x y z : Nat) (h : x ≠ 0) : (y * x = x * z) = (y = z) := by
+protected theorem nat_mul_lft_eq_mul (x y z : Nat) (h : ¬ (0 = x)) : (y * x = x * z) = (y = z) := by
   apply propext
+  have h : x ≠ 0 := Ne.symm h
   rw [Nat.mul_comm, Nat.mul_right_inj h]
 
-protected theorem nat_mul_lft_eq_mul_lft (x y z : Nat) (h : x ≠ 0) : (y * x = z * x) = (y = z) := by
+protected theorem nat_mul_lft_eq_mul_lft (x y z : Nat) (h : ¬ (0 = x)) : (y * x = z * x) = (y = z) := by
   apply propext
+  have h : x ≠ 0 := Ne.symm h
   rw [Nat.mul_left_inj h]
 
 def mkNat_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Nat.lt_asymm)
