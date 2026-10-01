@@ -23,10 +23,10 @@ def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
     let zero_int ← mkIntLitExpr 0
     let zero_lt ← mkIntLtExpr zero_int e
     if let some p := hyps.get? zero_lt then
-      return mkApp2 (mkConst ``Blaster.int_not_zero_eq_of_lt_zero) e p
+      return mkApp2 (mkConst ``Blaster.int_not_zero_eq_of_zero_lt) e p
     let zero_gt ← mkIntLtExpr e zero_int
     if let some p := hyps.get? zero_gt then
-      return mkApp2 (mkConst ``Blaster.int_not_zero_eq_of_zero_lt) e p
+      return mkApp2 (mkConst ``Blaster.int_not_zero_eq_of_lt_zero) e p
     let zero_eq ← mkIntEqExpr zero_int e
     return hyps.get? (mkApp (← mkPropNotOp) zero_eq)
 
@@ -493,10 +493,10 @@ def addIntEqZeroReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
         if let some p2 := ← gtZeroIntInHypsProof e2 then
           pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_eq_false_of_gt #[e1, e2, p1, p2]))
           return ← mkPropFalse
-        return none
-      if let (some p1, some p2) := (← ltZeroIntInHypsProof e1 , ← ltZeroIntInHypsProof e2) then
-        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_eq_false_of_lt #[e1, e2, p1, p2]))
-        return ← mkPropFalse
+      if let some p1 ← ltZeroIntInHypsProof e1 then
+        if let some p2 ← ltZeroIntInHypsProof e2 then
+          pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_eq_false_of_lt #[e1, e2, p1, p2]))
+          return ← mkPropFalse
       return none
   | _ => return none
 
