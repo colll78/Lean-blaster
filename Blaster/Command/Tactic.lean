@@ -114,8 +114,11 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
     while changed && fuel > 0 do
       fuel := fuel - 1
       changed := false
-      for step in steps do
-        if let .rewrite heq symm := step then
+      -- index into the current `steps`, whose proofs are renamed after each replacement
+      for j in [:steps.size] do
+        if let some (.rewrite heq symm) := steps[j]? then
+          -- a step built from this hypothesis or a later one cannot have normalized it
+          if heq.hasAnyFVar (hs.extract i hs.size).contains then continue
           try
             -- the rewrite runs on the delta expanded type, which is defeq to the declared one
             let r ← g.rewrite ty heq symm

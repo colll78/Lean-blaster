@@ -101,3 +101,8 @@ example : ∀ (x y : Int), x ≤ y → ¬ y < x := by blaster
 example : ∀ (x y : Int), x ≥ y → ¬ x < y := by blaster
 example : ∀ (a b : Prop), (True ∧ a) → (a ∧ b) = b := by blaster
 example : ∀ (p q : Prop), ¬¬p → (p ∧ q) = q := by blaster
+
+-- Steps built from a hypothesis are not replayed on it
+example : ∀ (a c : Prop), (a ∧ (a ∨ c)) → (a ∨ c) := by blaster
+example : ∀ (a b c d : Prop), (a ∧ (b ∨ c)) → b → (a ∧ d) = d ∧ (b ∨ c) := by blaster
+example : ∀ (x y : Nat), (x + 0 < y ∧ y < 10) → (x < y ∧ y < 10) = (y < 10) := by blaster
