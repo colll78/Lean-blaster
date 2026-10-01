@@ -1359,36 +1359,36 @@ elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 -/
 
 -- (true = p) = (x < y) ===> (true = p) = (x < y)
-#testOptimize [ "EqBoolEqBoolUnchanged_1"] (true = p) = (x < y) ===> (true = p) = (x < y)
+#testOptimize [ "EqBoolEqBoolUnchanged_1", proof] (true = p) = (x < y) ===> (true = p) = (x < y)
 
 -- (false = p) = (x < y) ===> (false = p) = (x < y)
-#testOptimize [ "EqBoolEqBoolUnchanged_2"] (false = p) = (x < y) ===> (false = p) = (x < y)
+#testOptimize [ "EqBoolEqBoolUnchanged_2", proof] (false = p) = (x < y) ===> (false = p) = (x < y)
 
 -- p = (x < y) ===> (true = p) = (x < y)
-#testOptimize [ "EqBoolEqBoolUnchanged_3"] p = (x < y) ===> (true = p) = (x < y)
+#testOptimize [ "EqBoolEqBoolUnchanged_3", proof] p = (x < y) ===> (true = p) = (x < y)
 
 -- (¬ p) = (x < y) ===> (false = p) = (x < y)
-#testOptimize [ "EqBoolEqBoolUnchanged_4"]  (¬ p) = (x < y) ===> (false = p) = (x < y)
+#testOptimize [ "EqBoolEqBoolUnchanged_4", proof]  (¬ p) = (x < y) ===> (false = p) = (x < y)
 
 -- (x < y) = (true = p) ===> (true = p) = (x < y)
-#testOptimize [ "EqBoolEqBoolUnchanged_5"] (x < y) = (true = p) ===> (true = p) = (x < y)
+#testOptimize [ "EqBoolEqBoolUnchanged_5", proof] (x < y) = (true = p) ===> (true = p) = (x < y)
 
 -- (x < y) = (false = p) ===> (false = p) = (x < y)
-#testOptimize [ "EqBoolEqBoolUnchanged_6"] (x < y) = (false = p) ===> (false = p) = (x < y)
+#testOptimize [ "EqBoolEqBoolUnchanged_6", proof] (x < y) = (false = p) ===> (false = p) = (x < y)
 
 -- (x < y) = p ===> (true = p) = (x < y)
-#testOptimize [ "EqBoolEqBoolUnchanged_7"] (x < y) = p  ===> (true = p) = (x < y)
+#testOptimize [ "EqBoolEqBoolUnchanged_7", proof] (x < y) = p  ===> (true = p) = (x < y)
 
 -- (x < y) = ¬ p ===> (false = p) = (x < y)
-#testOptimize [ "EqBoolEqBoolUnchanged_8"] (x < y) = ¬ p ===> (false = p) = (x < y)
+#testOptimize [ "EqBoolEqBoolUnchanged_8", proof] (x < y) = ¬ p ===> (false = p) = (x < y)
 
 -- (p ∧ ((x < y) ∨ ¬ (y > x))) = ((x > y) ∧ (¬ q ∨ q)) ===> (true = p) = (y < x)
-#testOptimize [ "EqBoolEqBoolUnchanged_9"] (p ∧ ((x < y) ∨ ¬ (y > x))) = ((x > y) ∧ (¬ q ∨ q)) ===>
+#testOptimize [ "EqBoolEqBoolUnchanged_9", proof] (p ∧ ((x < y) ∨ ¬ (y > x))) = ((x > y) ∧ (¬ q ∨ q)) ===>
                                            (true = p) = (y < x)
 
 -- ((x < y) ∧ (¬ q ∨ q)) = (¬ (¬ (¬ p ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ q ∨ q))) ===>
 -- (false = p) = (x < y)
-#testOptimize [ "EqBoolEqBoolUnchanged_10"] ((x < y) ∧ (¬ q ∨ q)) = (¬ (¬ (¬ p ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ q ∨ q))) ===>
+#testOptimize [ "EqBoolEqBoolUnchanged_10", proof] ((x < y) ∧ (¬ q ∨ q)) = (¬ (¬ (¬ p ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ q ∨ q))) ===>
                                             (false = p) = (x < y)
 
 
