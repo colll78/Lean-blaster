@@ -46,7 +46,9 @@ jobs:
           persist-credentials: false
       - name: Resolve one Z3 master snapshot for the matrix
         id: solver
-        run: echo "sha=$(bash scripts/ci/resolve-z3.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          revision=$(bash scripts/ci/resolve-z3.sh)
+          echo "sha=$revision" >> "$GITHUB_OUTPUT"
       - name: Validate full commit revisions
         id: revisions
         env:
