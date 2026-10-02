@@ -235,12 +235,14 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
    /-- Emit the proof step for Int.fdiv n n ==> 1 (requires n ≠ 0) -/
    emitFdivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
     if let some h ← findNeZeroIntProof? n then
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.fdiv_self) n h))
+       let h' ← mkAppM ``Ne.symm #[h]
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.fdiv_self) n h'))
 
    /-- Emit the proof step for Int.tdiv n n ==> 1 (requires n ≠ 0) -/
    emitTdivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
     if let some h ← findNeZeroIntProof? n then
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.tdiv_self) n h))
+       let h' ← mkAppM ``Ne.symm #[h]
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.tdiv_self) n h'))
 
    /-- Emit the proof step for (m * n) / n ==> m or (n * m) / n ==> m (requires n ≠ 0). -/
    emitMulEDivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
@@ -256,19 +258,21 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
    emitMulFdivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
      let some (a, b) := intMul? op1 | return ()
      let some h ← findNeZeroIntProof? op2 | return ()
+     let h' ← mkAppM ``Ne.symm #[h]
      if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_fdiv_cancel) a op2 h))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_fdiv_cancel) a op2 h'))
      else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_fdiv_cancel_left) op2 b h))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_fdiv_cancel_left) op2 b h'))
 
    /-- Emit the proof step for Int.tdiv (m * n) / n or (n * m) / n ==> m (requires n ≠ 0). -/
    emitMulTdivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
      let some (a, b) := intMul? op1 | return ()
      let some h ← findNeZeroIntProof? op2 | return ()
+     let h' ← mkAppM ``Ne.symm #[h]
      if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_tdiv_cancel) a op2 h))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_tdiv_cancel) a op2 h'))
      else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_tdiv_cancel_left) op2 b h))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_tdiv_cancel_left) op2 b h'))
 
 /- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
    and `dk` the corresponding `DivKind` (yielding the divisor operator `f_div`),
@@ -517,8 +521,10 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      let some (e1, n) := intTDiv? op1 | return none
      match isIntValue? n, isIntValue? op2 with
      | some n1, some n2 =>
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_tdiv_mul_lit) e1 n op2))
-       return (mkApp2 f e1 (← evalBinIntOp Int.mul n1 n2))
+       let M ← evalBinIntOp Int.mul n1 n2
+       let refl := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) M
+       pushProofStep (.rewrite (← mkAppM  ``Blaster.int_tdiv_mul_lit #[e1, n, op2, M , refl]))
+       return (mkApp2 f e1 M)
      | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `Int.tmod` :

@@ -266,8 +266,9 @@ protected theorem int_add_eq_false_of_lt (a b : Int) (h1 : a < 0) (h2:  b < 0) :
   omega
 
 /-! Lemma to validate simplification rule `(n /ₜ N1) /ₜ N2 ==> n /ₜ (N1 * N2)` -/
-protected theorem int_tdiv_mul_lit (n N1 N2 : Int) :
-    Int.tdiv (Int.tdiv n N1) N2 = Int.tdiv n (N1 * N2) := by
+protected theorem int_tdiv_mul_lit (n N1 N2 M: Int) (h: N1 * N2 = M) :
+    Int.tdiv (Int.tdiv n N1) N2 = Int.tdiv n M := by
+  subst h
   rcases Int.eq_nat_or_neg n with ⟨a, ha | ha⟩ <;>
   rcases Int.eq_nat_or_neg N1 with ⟨b, hb | hb⟩ <;>
   rcases Int.eq_nat_or_neg N2 with ⟨c, hc | hc⟩ <;>

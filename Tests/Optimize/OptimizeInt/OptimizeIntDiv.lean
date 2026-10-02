@@ -140,6 +140,6 @@ elab "intDivCst_2" : term => return intDivCst_2
 
 #testOptimize ["IntTdivMulLit_4", proof] ∀ (n : Int), Int.tdiv (Int.tdiv n (-5)) (-3) = Int.tdiv n 15 ===> True
 
-#testOptimize ["IntTdivMulLit_5", proof] ∀ (n : Int), Int.tdiv (Int.tdiv (Int.tdiv n 2) 3) 1 = Int.tdiv n 6 ===> True
+#testOptimize ["IntTdivMulLit_5", proof] ∀ (n : Int), Int.tdiv (Int.tdiv (Int.tdiv n 2) 3) 5 = Int.tdiv n 30 ===> True
 
 end Tests.OptimizeIntDiv
