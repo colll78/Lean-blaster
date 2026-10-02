@@ -39,7 +39,14 @@ jobs:
       blaster: ${{ steps.revisions.outputs.blaster }}
       plutus: ${{ steps.revisions.outputs.plutus }}
       ledger: ${{ steps.revisions.outputs.ledger }}
+      z3: ${{ steps.solver.outputs.sha }}
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Resolve one Z3 master snapshot for the matrix
+        id: solver
+        run: echo "sha=$(bash scripts/ci/resolve-z3.sh)" >> "$GITHUB_OUTPUT"
       - name: Validate full commit revisions
         id: revisions
         env:
@@ -63,6 +70,8 @@ jobs:
     needs: resolve
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      Z3_COMMIT: ${{ needs.resolve.outputs.z3 }}
     strategy:
       fail-fast: false
       matrix:
@@ -94,7 +103,7 @@ jobs:
           fi
           mkdir -p .ci-results
           git diff -- lakefile.lean > .ci-results/dependency-overlay.patch
-      - name: Setup downstream Lean and pinned Z3
+      - name: Setup downstream Lean and Z3 master
         working-directory: downstream
         run: bash ../ci/scripts/ci/setup-tools.sh
       - name: Resolve and verify exact dependencies
