@@ -48,7 +48,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
 
 - **Lean4** v4.24.0 (or compatible version)
-- **Z3** `master` branch until official version > v5.1.0 is out. We submitted patches that were merged into `master`.
+- **Z3** with the `recfun-finder` simplifier; use the pinned build below.
 
 ### Installing Lean4
 
@@ -60,11 +60,9 @@ Please follow the official installation guidelines from the [Lean4 GitHub reposi
 
 ### Installing Z3
 
-We do our best to stay updated with the latest release of Z3. However, regressions can occur and often require extensive research and resolution, so Blaster might be slightly behind the latest version.
-
-**Currently tested version:** Z3 v4.15.2
-
-> **Note:** Blaster should work with later releases, though no guarantees are made.
+The tested assurance baseline reports Z3 5.1.0 and is pinned by source revision.
+A version number alone does not establish compatibility: `z3check` probes the
+required `recfun-finder` simplifier.
 
 The section on [Installing the Z3 Solver](#installing-the-z3-solver)
 below explains how to get the right version of Z3 installed and check that
@@ -527,16 +525,6 @@ Once an expression has been translated, Blaster interacts with an external SMT s
 ---
 
 ## Installing the Z3 Solver
-
-Blaster requires Z3 version 4.15.2.  To install that, you need to
-
-1. **Check out** the 4.15.2 tagged branch of the Z3 repo;
-2. **Install** Z3 in a location that doesn't conflict with possible existing versions
-   on your machine (e.g., in `/usr/bin/z3`)
-3. **Ensure** Lean 4 is using the right version of Z3.
-
-Below are instructions for accomplishing these objectives.  (They are aimed at
-.deb-based Linux, but the same or similar steps should work on other platforms.)
 
 ### Build a solver with the required capability
 
