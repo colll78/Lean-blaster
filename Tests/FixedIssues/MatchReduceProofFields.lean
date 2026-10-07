@@ -64,12 +64,12 @@ theorem get_concrete_list : ∀ (a b : Nat), getOr [a, b] 1 = b := by blaster
 
 theorem getElem_concrete_list : ∀ (a b : Nat), getOrIdx [a, b] 1 = b := by blaster
 
--- left to the solver once the match reduces
+theorem get_last_of_three : ∀ (a b c : Nat), getOr [a, b, c] 2 > b → c > b := by blaster
+
+-- left to the solver once the match reduces (optimization alone leaves it undetermined)
 theorem get_then_arith :
   ∀ (a b : Nat) (l : List Nat), b > 3 → getOr (a :: b :: l) 1 + a > a + 3 :=
     by blaster
-
-theorem get_last_of_three : ∀ (a b c : Nat), getOr [a, b, c] 2 > b → c > b := by blaster
 
 #blaster [∀ (a : Nat) (l : List Nat), getOr (a :: l) 1 = getOr l 0]
 #blaster [∀ (a b c : Nat), getOr [a, b, c] 2 > b → c > b]
