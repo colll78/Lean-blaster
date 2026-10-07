@@ -33,6 +33,62 @@ partial def eraseMatchRhsRewriteCache (mInfo : MatchInfo) : TranslateEnvT Unit :
 def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
   (getLambdaBody t).getForallBodyMaxDepth nbArgs
 
+/-- `true` when the `idx`-th parameter of the recursive function `f` is passive, i.e., never
+    inspected by `f`'s unfolding equation: it occurs in no match discriminant, `if` condition or
+    recursor application, a recursive call passes it on only in its own position, and it never
+    shares a (non-constructor) application with a recursive call. An accumulator is passive.
+    Whether a call of `f` unfolds to a smaller one then does not depend on that parameter, so it
+    need not be a constructor (see `allExplicitParamsAreCtor`), and a `structure` with symbolic
+    fields there does not block the unfolding. -/
+partial def isPassiveParam (f : Expr) (idx : Nat) : TranslateEnvT Bool := do
+  let Expr.const n _ := f | return false
+  if !(← isRecursiveFun n) then return false
+  let some fbody ← getFunBody f | return false
+  let env ← getEnv
+  Meta.lambdaTelescope fbody fun xs body => do
+    if h : idx < xs.size then
+      let x := xs[idx].fvarId!
+      return !(inspects env n x (← Meta.zetaReduce body))
+    else return false
+ where
+   hasRecCall (n : Name) (e : Expr) : Bool := (e.find? (·.isConstOf n)).isSome
+
+   isRecursorName (env : Environment) (c : Name) : Bool :=
+     isCasesOnRecursor env c || isRecCore env c ||
+     (match c with
+      | .str _ s => s == "recOn" || s == "brecOn" || s == "binductionOn"
+      | _ => false)
+
+   inspects (env : Environment) (n : Name) (x : FVarId) (e : Expr) : Bool :=
+     if !e.containsFVar x then false
+     else match e with
+     | .app .. =>
+         let fn := e.getAppFn
+         let args := e.getAppArgs
+         let rec' := args.any (inspects env n x)
+         match fn with
+         | .const c _ =>
+             if c == n then
+               -- recursive call: `x` may only flow into its own position
+               (args.size > 0 && (List.range args.size).any (fun k => k != idx && args[k]!.containsFVar x)) || rec'
+             else if c == ``ite || c == ``dite || c == ``cond || c == ``Blaster.dite' then
+               -- the condition is the second argument of all four
+               (args.size > 1 && args[1]!.containsFVar x) || rec'
+             else if let some info := Meta.getMatcherInfoCore? env c then
+               let first := info.numParams + 1
+               (List.range info.numDiscrs).any (fun k => first + k < args.size && args[first + k]!.containsFVar x) || rec'
+             else if isRecursorName env c then true
+             else if (env.find? c).any (·.isCtor) then rec'
+             else
+               -- `x` must not steer which recursive calls happen
+               hasRecCall n e || rec'
+         | _ => hasRecCall n e || inspects env n x fn || rec'
+     | .lam _ t b _ | .forallE _ t b _ => inspects env n x t || inspects env n x b
+     | .letE _ t v b _ => inspects env n x t || inspects env n x v || inspects env n x b
+     | .mdata _ b => inspects env n x b
+     | .proj _ _ b => hasRecCall n b || inspects env n x b
+     | _ => false
+
 /-- Given `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
      -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
      -  ∀ i ∈ [1..n], isExplicit xᵢ → isCstProp xᵢ ∨ isPropFunType f xₓ
@@ -56,12 +112,12 @@ partial def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagati
         then
           if funPropagation then
             let res ← isCstIteMatch e
-             if (← pure res <||> isPropFunType p e)
+             if (← pure res <||> isPropFunType p e <||> isPassiveParam f i)
              then loop (i+1) stop pInfoSize (atLeastOneExplicitCstr || res && (← isIteOrMatch e))
              else return false
           else
              let cstProp ← isNormConstructor e
-             if (← pure cstProp <||> isPropFunType p e)
+             if (← pure cstProp <||> isPropFunType p e <||> isPassiveParam f i)
              then loop (i+1) stop pInfoSize (atLeastOneExplicitCstr || cstProp)
              else return false
         else loop (i+1) stop pInfoSize atLeastOneExplicitCstr
