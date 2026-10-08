@@ -31,6 +31,19 @@ def isCtorExpr (e : Expr) : TranslateEnvT Bool := do
  | Expr.const n _ => return (← getConstEnvInfo n).isCtor
  | _ => return false
 
+/-- Return `true` if `n` correspond to a structure ctor. The result is memoized. -/
+@[inline] def isStructureCtorEnv (n : Name) : TranslateEnvT Bool := do
+  match (← get).optEnv.memCache.isStructureCache.get? n with
+  | some b => return b
+  | none =>
+      let b ← isStructureCtorBase n
+      updateIsStructureCache n b
+      return b
+  where
+    isStructureCtorBase (n : Name) : TranslateEnvT Bool := do
+      let ConstantInfo.ctorInfo info ← getConstEnvInfo n | return false
+      return isStructure (← getEnv) info.induct
+
 /-- set optimize option `inPatternMatchin` to `h`. -/
 def setInPatternMatching (h : HashSet FVarId) : TranslateEnvT Unit := do
   modify (fun env => {env with smtEnv.options.inPatternMatching := h })
@@ -402,6 +415,12 @@ def isPropEnv (e : Expr) : TranslateEnvT Bool := do
              | Expr.sort u => u.isAlwaysZero
              | _ => false
           return isPropType (← inferTypeEnv e)
+
+@[inline]
+def getLevelEnv (t : Expr) : TranslateEnvT Level := do
+  match ← inferTypeEnv t with
+  | Expr.sort u => return u
+  | _ => throwEnvError "getLevelEnv: sort expected for {reprStr t}"
 
 @[always_inline, inline]
 def reduceEnvProj? (e : Expr) : TranslateEnvT (Option Expr) := do

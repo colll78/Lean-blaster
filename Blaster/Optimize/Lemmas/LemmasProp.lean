@@ -80,9 +80,6 @@ def mkBlasterFalseEqNotTrueEq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.
 /-- Return `Blaster.true_eq_of_not_false_eq` const expression and cache result. -/
 def mkBlasterTrueEqNotFalseEq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.true_eq_of_not_false_eq)
 
-protected theorem Blaster.and_left {a b : Prop} (h : a ∧ b) : a := by apply (And.left h)
-protected theorem Blaster.and_right {a b : Prop} (h : a ∧ b) : b := by apply (And.right h)
-
 /-- Return `Blaster.and_implies_from_dite` const expression and cache result. -/
 def mkBlasterAndImpliesOfDite : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.and_implies_from_dite)
 

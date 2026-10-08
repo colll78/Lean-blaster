@@ -160,14 +160,23 @@ def mkTrueIntro : TranslateEnvT Expr :=
 def mkNotFalse : TranslateEnvT Expr :=
     return (← get).optEnv.memCache.commonExpr.notFalse
 
+/-- Return `Decidable.decide` const expression and cache result. -/
+def mkDecide : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.decide
+
 /-- Return `of_decide_eq_true` const expression and cache result. -/
-def mkOfDecideEqTrue : TranslateEnvT Expr := mkExpr (mkConst ``of_decide_eq_true)
+def mkOfDecideEqTrue : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.ofDecideEqTrue
 
 /-- Return `of_decide_eq_false` const expression and cache result. -/
-def mkOfDecideEqFalse : TranslateEnvT Expr := mkExpr (mkConst ``of_decide_eq_false)
+def mkOfDecideEqFalse : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.ofDecideEqFalse
 
 /-- Return `Eq.refl` const expression and cache result. -/
-def mkEqRefl : TranslateEnvT Expr := mkExpr (mkConst ``Eq.refl [levelOne])
+def mkEqRefl (u : List Level) : TranslateEnvT Expr := mkExpr (mkConst ``Eq.refl u)
+
+/-- Return `rfl` const expression and cache result. -/
+def mkRfl (u : List Level) : TranslateEnvT Expr := mkExpr (mkConst ``rfl u)
 
 /-- Return `Nat` Type and cache result. -/
 def mkNatType : TranslateEnvT Expr :=

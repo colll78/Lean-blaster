@@ -340,15 +340,15 @@ partial def patternHasFVar (p : Expr) : TranslateEnvT Bool := do
     Asssumes that matchType := λ β₁ => ... => βₘ
 -/
 def normMatchExprAux?
-  (idx : Nat) (discrs : Array Expr)
+  (lastPattern : Bool) (mInfo : MatchInfo) (margs : Array Expr)
   (lhs : Array Expr) (rhs : Expr) (params : Array Expr)
-  (matchType : Expr) (acc : Option Expr) : TranslateEnvT (Option Expr) := do
+  (acc : Option Expr) : TranslateEnvT (Option Expr) := do
   let plhs ← removeNamedPatterns lhs
   if !(← isItePattern plhs) then return none
   let rhs ← betaLambdaShared rhs params
-  if idx == 0 then return some (← mkRhs discrs lhs rhs (lastPattern := true)) -- last pattern
+  if lastPattern then return some (← mkRhs lhs rhs (lastPattern := true)) -- last pattern
   let some elseExpr := acc | return acc
-  mkIte discrs lhs plhs rhs elseExpr
+  mkIte lhs plhs rhs elseExpr
 
  where
 
@@ -376,24 +376,24 @@ def normMatchExprAux?
        else replaceShared rhs (λ a => do if exprEq a discr then return pattern' else return none) (resolveMVars := true)
      else return rhs
 
-   mkRhs (discrs : Array Expr) (lhs : Array Expr) (rhs : Expr) (lastPattern := false) : TranslateEnvT Expr := do
+   mkRhs (lhs : Array Expr) (rhs : Expr) (lastPattern := false) : TranslateEnvT Expr := do
     let mut mrhs := rhs
     let nbPatterns := lhs.size
     for i in [:nbPatterns] do
       let idx := nbPatterns - i - 1
       let pattern := lhs[idx]!
-      let e := discrs[idx]!
-      mrhs ← replaceDiscrInLastRhs lastPattern e pattern mrhs
-      mrhs ← mkLet discrs[idx]! lhs[idx]! mrhs (λ x => return x)
+      let discr := margs[mInfo.getFirstDiscrPos + idx]!
+      mrhs ← replaceDiscrInLastRhs lastPattern discr pattern mrhs
+      mrhs ← mkLet discr lhs[idx]! mrhs (λ x => return x)
     return mrhs
 
-   mkIte (discrs : Array Expr) (lhs : Array Expr)
-         (plhs: Array Expr) (rhs : Expr) (elseExpr : Expr) : TranslateEnvT (Option Expr) := do
+   mkIte (lhs : Array Expr) (plhs: Array Expr) (rhs : Expr) (elseExpr : Expr) : TranslateEnvT (Option Expr) := do
+     let matchType := margs[mInfo.getFirstDiscrPos - 1]!
      let discrsType ← getLambdaBinderTypes matchType
-     let thenExpr ← mkRhs discrs lhs rhs
+     let thenExpr ← mkRhs lhs rhs
      let mut andTerms := (#[] : Array Expr)
      for h : i in [:plhs.size] do
-       andTerms ← mkCond discrs[i]! plhs[i] discrsType[i]! andTerms
+       andTerms ← mkCond margs[mInfo.getFirstDiscrPos + i]! plhs[i] discrsType[i]! andTerms
      let nbCond := andTerms.size
      if nbCond == 0 then return thenExpr -- case when else unreachable (i.e., renaming pattern redundant)
      let mut condTerm := andTerms[nbCond-1]!
@@ -407,6 +407,24 @@ def normMatchExprAux?
      let lam2 ← mkLambdaExpr hName BinderInfo.default notCond elseExpr
      mkApp4Expr (← mkBlasterDIteOp) (getLambdaBody matchType) condTerm lam1 lam2
 
+/-- Instantiating Heq match equation in provided rhs parameters  -/
+partial def assignEqRefl (mInfo : MatchInfo) (rhs_params : Array Expr) (margs : Array Expr) : TranslateEnvT (Array Expr) := do
+  let discrsType ← getLambdaBinderTypes margs[mInfo.getFirstDiscrPos - 1]!
+  let rec visit (idx : Nat) (stop : Nat) (nbHeq : Nat) (xs : Array Expr) : TranslateEnvT (Array Expr) := do
+    if idx < stop then return xs
+    else
+      let idxDiscr := idx - mInfo.getFirstDiscrPos
+      if (mInfo.discrInfos[idxDiscr]!).hName?.isSome then
+        -- assign mvars to mkEqRefl
+        let dType := discrsType[idxDiscr]!
+        let lvl ← getLevelEnv dType
+        let nbHeq := nbHeq + 1
+        let idxMVar := xs.size - nbHeq
+        visit (idx - 1) stop nbHeq (xs.set! idxMVar (← mkApp2Expr (← mkEqRefl [lvl]) dType margs[idx]!))
+      else
+        visit (idx - 1) stop nbHeq xs
+   -- traverse discrs in reverse order to properly set heq
+   visit (mInfo.getFirstAltPos - 1) mInfo.getFirstDiscrPos 0 rhs_params
 
 /-- A generic match expression rewriter that given a `MatchInfo` instance representing a match application,
     apply the `rewriter` function on each match pattern. The `rewriter` function
@@ -431,15 +449,12 @@ def normMatchExprAux?
 @[specialize]
 def matchExprRewriter
     (mInfo : MatchInfo) (args : Array Expr)
-    (rewriter : Nat → Array Expr → Array Expr → Expr → Array Expr → Expr → Option α → TranslateEnvT (Option α)) :
+    (rewriter : Bool → MatchInfo → Array Expr → Array Expr → Expr → Array Expr → Option α → TranslateEnvT (Option α)) :
     TranslateEnvT (Option α) := do
-    let discrs := args.extract mInfo.getFirstDiscrPos mInfo.getFirstAltPos
-    let rhs := args.extract mInfo.getFirstAltPos mInfo.arity
-    commonMatchRewriter discrs (← getMatchAlts args mInfo) rhs args[mInfo.getFirstDiscrPos - 1]!
+    commonMatchRewriter args (← getMatchAlts args mInfo)
 
   where
-    commonMatchRewriter
-      (discrs : Array Expr) (alts : Array Expr) (rhs : Array Expr) (matchType : Expr) : TranslateEnvT (Option α) := do
+    commonMatchRewriter (margs : Array Expr) (alts : Array Expr) : TranslateEnvT (Option α) := do
       let mut accExpr := (none : Option α)
       -- traverse in reverse order to handle last pattern first
       let nbAlts := alts.size
@@ -450,7 +465,8 @@ def matchExprRewriter
             let mut lhs := b.getAppArgs
             -- trace[Optimize.normMatch.pattern] "match patterns to optimize {reprStr lhs}"
             -- NOTE: lhs is now implicitly normalized when computing MatchInfo
-            rewriter i discrs lhs rhs[idx]! xs matchType accExpr
+            let xs ← assignEqRefl mInfo xs margs
+            rewriter (i == 0) mInfo margs lhs args[mInfo.getFirstAltPos + idx]! xs accExpr
         unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
       return accExpr
 

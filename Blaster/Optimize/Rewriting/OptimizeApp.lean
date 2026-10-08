@@ -90,7 +90,7 @@ def normalizeNamedBEq? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
 /-- Perform constant propagation and apply simplification and normalization rules
     on application expressions.
 -/
-def optimizeAppAux (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
+def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if let some e ← normalizeNamedBEq? f args then return e
   let args ← reorderOperands f args
   if let some e ← optimizePropNot? f args then return e

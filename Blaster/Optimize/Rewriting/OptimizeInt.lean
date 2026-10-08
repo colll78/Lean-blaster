@@ -74,6 +74,7 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - -1 * n ==> -n
      - N1 * N2 ==> N1 "*" N2
      - N1 * (N2 * n) ==> (N1 "*" N2) * n
+     - n * n^m ===> n ^ (m + 1)
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Int.mul.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.mul` expected at this stage)
@@ -91,6 +92,7 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some n1, some n2 => evalBinIntOp Int.mul n1 n2
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op2 then return r
+   if let some r ← mulIntPowReduceExpr? op1 op2 then return r
    mkApp2Expr f op1 op2
 
  where
@@ -103,6 +105,19 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     | some n1, some (IntCstOpInfo.IntMulExpr n2 e2) =>
         mkApp2Expr f (← evalBinIntOp Int.mul n1 n2) e2
     | _, _ => return none
+
+   /-- Given `e1` and `e2` corresponding to the operands for `Int.mul`,
+       return some e1^(m + 1) only when `e2 := e1 ^ m`
+   -/
+   mulIntPowReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+    match intPow? e2 with
+    | some (op1, op2) =>
+       if exprEq e1 op1 then
+         setRestart
+         let addExpr ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr 1) op2
+         mkApp2Expr (← mkIntPowOp) e1 addExpr
+       else return none
+    | none => return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
     return `some 1` only when the following conditions are satisfied:
@@ -430,6 +445,22 @@ def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let intExpr ← mkAppExpr (← mkIntOfNat) addExpr
  mkAppExpr (← mkIntNegOp) intExpr
 
+/-- Apply the following simplification/normalization rules on `Int.pow` :
+     - n ^ 0 ==> 1
+     - N1 ^ N2 ==> N1 "^" N2
+   Assume that f = Expr.const ``Int.pow.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.pow` expected at this stage)
+
+-/
+def optimizeIntPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+ if args.size != 2 then throwEnvError "optimizeIntPow: exactly two arguments expected"
+ let op1 := args[0]! -- int argument
+ let op2 := args[1]! -- nat argument
+ match isIntValue? op1, isNatValue? op2 with
+ | _, some 0 => return (← mkIntLitExpr (Int.ofNat 1))
+ | some n1, some n2 => mkIntLitExpr (Int.pow n1 n2)
+ | _, _ => mkApp2Expr f op1 op2
+
 /-- Apply simplification/normalization rules on `Int` operators.
 -/
 @[always_inline, inline]
@@ -446,6 +477,7 @@ def optimizeInt? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   | ``Int.tmod => optimizeIntTMod f args
   | ``Int.fdiv => optimizeIntFDiv f args
   | ``Int.fmod => optimizeIntFMod f args
+  | ``Int.pow => optimizeIntPow f args
   | _=> return none
 
 end Blaster.Optimize

@@ -397,7 +397,7 @@ def getConversionFunction (fromSmtType toSmtType : SortExpr) (coDomainType : Opt
         let xId := smtSimpleVarId xsym
         let f_coeTerm := mkSimpleSmtAppN coeName #[xId]
         let coeQuant := #[(xsym, fromSmtType)]
-        let coDomain ← createPredQualifierAppAux f_coeTerm toType
+        let coDomain ← createPredQualifierAppAux f_coeTerm (← removeTypeAbbrev toType)
         let qidName := mkQid $ appendSymbol coeName "co_cstr"
         let patterns := some #[mkPattern #[f_coeTerm], qidName]
         assertTerm (mkForallTerm none coeQuant coDomain patterns)
@@ -630,7 +630,9 @@ partial def translateRecFun
           let decl ← fv.fvarId!.getEnvDecl
           updateQuantifiedFVarsCache fv.fvarId! false
           if pInfo.paramsInfo[i]!.isExplicit then
-            let st ← translateFunLambdaParamType decl.type termTranslator
+            -- NOTE: We don't optimize proof at preprocessing phase
+            let ptype ← if ← isPropEnv decl.type then optimizeExpr decl.type else pure decl.type
+            let st ← translateFunLambdaParamType ptype termTranslator
             params := params.push (← fvarIdToSmtSymbol fv.fvarId!, st)
         let ret ← translateFunLambdaParamType (← inferTypeEnv b) termTranslator
         let funDecl := {name := getSymbol id, params, ret}
@@ -754,7 +756,8 @@ def generateUndeclaredFun
   let pInfo ← getFunEnvInfo f
   -- infer fun type and removing implicit arguments (i.e., even class constraints)
   let funType ← inferUndeclFunType pInfo.type params
-  Optimize.forallTelescope funType fun fvars retType => do
+  Optimize.forallTelescope funType fun fvars rawRetType => do
+    let retType ← removeTypeAbbrev rawRetType
     let xsyms := Array.ofFn (λ f : Fin fvars.size => mkReservedSymbol s!"@x{f.val}")
     let mut pargs := (#[] : Array SortExpr)
     let mut co_quantifiers := (#[] : SortedVars)
@@ -834,7 +837,7 @@ def translateIndTypeExpr? (t : Expr) (termTranslator : Expr → TranslateEnvT Sm
           let coerceInst ← getConversionFunction st instSort none
           let xsym := mkReservedSymbol s!"@x"
           let xId := smtSimpleVarId xsym
-          let predQualifier ← createPredQualifierAppAux xId t
+          let predQualifier ← createPredQualifierAppAux xId (← removeTypeAbbrev t)
           let coerceApp := mkSimpleSmtAppN coerceInst #[xId]
           let instPred := mkSimpleSmtAppN decl.instName #[coerceApp, smtSimpleVarId abstName]
           let forallBody := impliesSmt predQualifier instPred
@@ -868,7 +871,7 @@ def translateIndTypeExpr? (t : Expr) (termTranslator : Expr → TranslateEnvT Sm
          - return ⊥
      - When `n` ∈ opaqueFuns ∨ isRecursiveFun `n`
          - return `termTranslator (← etaExpand e)`
-     - When `isTheorem n` ∧ `¬ hasSorryTheorem e` ∧ ¬ Type(e).isForAll
+     - When `isTheorem n` ∧ ¬ Type(e).isForAll
          - return termTranslator (← optimizeExpr Type(e))
      - When `isAxiom n ∨ some ConstantInfo.opaqueInfo _ ← getConstEnvInfo n`
          - When n := s ∈ axiomMap:
@@ -937,8 +940,7 @@ def translateConst
     translateTheorem? (n : Name) : TranslateEnvT (Option SmtTerm) := do
       if !(← isTheorem n) then return none
       let ConstantInfo.thmInfo info ← getConstEnvInfo n | return none
-      -- check if e has sorry theorem and trigger error if this is the case
-      hasSorryTheorem e "translateConst: Theorem {n} has `sorry` demonstration"
+      -- We now accept theorem concluded with sorry.
       if info.type.isForall then
         throwEnvError "translateConst: Fully applied theorem expected but got {reprStr info.type}"
       termTranslator (← optimizeExpr (← hashcons info.type))
@@ -1178,8 +1180,7 @@ def translateApp
     translateTheorem (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if !(← isTheorem n) then return none
       let ConstantInfo.thmInfo info ← getConstEnvInfo n | return none
-      -- check if e has sorry demonstration and trigger error if this is the case
-      hasSorryTheorem e "translateApp: Theorem {n} has `sorry` demonstration"
+      -- We now accept theorem concluded with sorry
       termTranslator (← optimizeExpr (← betaForAll (← hashcons info.type) args))
 
 /-- Given `e := λ (x₁ : t₁) → λ (xₙ : tₙ) => b`, perform the following:

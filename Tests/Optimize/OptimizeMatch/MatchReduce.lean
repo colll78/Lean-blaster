@@ -238,6 +238,60 @@ def filterStringThree (s : String) : Nat :=
   filterStringThree (String.mk [c1, c2, c3]) = Nat.add (Nat.add c1.toNat c2.toNat) c3.toNat ===> True
 
 
+def heqMatchOne (x : List Int) (y : List Nat) (f : (x : List Int) → ¬ [] = x → Nat) (g : (y : List Nat) → ¬ [] = y → Nat) : Nat :=
+ match heq1 : x, heq2 : y with
+ | [], [] => 0
+ | [_], [_] => 1
+ | _ :: q@(_ :: r@([_, _])), _ :: p@([_, n]) => (2 + List.length p + f x (by simp [heq1]) + g y (by simp [heq2]) + List.length q - List.length r) * n
+ | [_], p@(_ :: q@([_, _])) => 1 + List.length p + List.length q + f x (by simp [heq1]) + g y (by simp [heq2])
+ | s, t => List.length s + List.length t + 8
+
+-- ∀ (x1 x2 x3 x4 : Int) (y1 y2 y3 nb : Nat) (f : (x : List Int) → ¬ [] = x → Nat) (g : (y : List Nat) → ¬ [] = y → Nat),
+--    heqMatchOne [x1, x2, x3, x4] [y1, y2, y3] f g > nb ===>
+-- ∀ (x1 x2 x3 x4 : Int) (y1 y2 y3 nb : Nat) (f : (x : List Int) → ¬ [] = x → Nat) (g : (y : List Nat) → ¬ [] = y → Nat),
+--    nb < Nat.mul y3
+--         (Nat.add 1
+--           (Nat.add (g [y1, y2, y3] (Tests.MatchReduce.heqMatchOne._proof_2 [y1, y2, y3] y1 y2 y3 (by rfl)))
+--           (Nat.add 4 (f [x1, x2, x3, x4] (Tests.MatchReduce.heqMatchOne._proof_1 [x1, x2, x3, x4] x1 x2 x3 x4 (by rfl))))))
+-- Test cases validating heq in match
+#testOptimize [ "MatchReduce_23" ] (norm-result: 1)
+  ∀ (x1 x2 x3 x4 : Int) (y1 y2 y3 nb : Nat) (f : (x : List Int) → ¬ [] = x → Nat) (g : (y : List Nat) → ¬ [] = y → Nat),
+     heqMatchOne [x1, x2, x3, x4] [y1, y2, y3] f g > nb ===>
+  ∀ (x1 x2 x3 x4 : Int) (y1 y2 y3 nb : Nat) (f : (x : List Int) → ¬ [] = x → Nat) (g : (y : List Nat) → ¬ [] = y → Nat),
+     nb < Nat.mul y3
+          (Nat.add 1
+            (Nat.add (g [y1, y2, y3] (Tests.MatchReduce.heqMatchOne._proof_2 [y1, y2, y3] y1 y2 y3 (by rfl)))
+            (Nat.add 4 (f [x1, x2, x3, x4] (Tests.MatchReduce.heqMatchOne._proof_1 [x1, x2, x3, x4] x1 x2 x3 x4 (by rfl))))))
+
+-- ∀ (x1 x2 x3 x4 : Int) (y1 y2 y3 : Nat) (f : (x : List Int) → ¬ [] = x → Nat) (g : (y : List Nat) → ¬ [] = y → Nat),
+--    heqMatchOne [x1, x2, x3, x4] [y1, y2, y3] f g =
+--    y3 * (1 + (g [y1, y2, y3] (Tests.MatchReduce.heqMatchOne._proof_2 [y1, y2, y3] y1 y2 y3 (by rfl)) +
+--         (4 + f [x1, x2, x3, x4] (Tests.MatchReduce.heqMatchOne._proof_1 [x1, x2, x3, x4] x1 x2 x3 x4 (by rfl))))) ===> True
+-- Test cases validating heq in match while checking for structural equality
+#testOptimize [ "MatchReduce_24" ]
+  ∀ (x1 x2 x3 x4 : Int) (y1 y2 y3 : Nat) (f : (x : List Int) → ¬ [] = x → Nat) (g : (y : List Nat) → ¬ [] = y → Nat),
+     heqMatchOne [x1, x2, x3, x4] [y1, y2, y3] f g =
+     y3 * (1 + (g [y1, y2, y3] (Tests.MatchReduce.heqMatchOne._proof_2 [y1, y2, y3] y1 y2 y3 (by rfl)) +
+          (4 + f [x1, x2, x3, x4] (Tests.MatchReduce.heqMatchOne._proof_1 [x1, x2, x3, x4] x1 x2 x3 x4 (by rfl))))) ===> True
+
+def heqMatchTwo (x : List Int) (y : Nat) (g : (y : Nat) → y = 0 → Nat) : Nat :=
+ match x, heq : y with
+ | [], _ => 0
+ | [_], _ => 1
+ | _ :: q@(_ :: [_, _]), Nat.zero => g y heq + List.length q
+ | [_, _], Nat.succ (Nat.succ n) => n
+ | s, t => List.length s + t + 8
+
+-- ∀ (x1 x2 x3 x4 : Int) (nb : Nat) (g : (y : Nat) → y = 0 → Nat),
+--    heqMatchTwo [x1, x2, x3, x4] 0 g > nb ===>
+-- ∀ (nb : Nat) (g : (y : Nat) → 0 = y → Nat),
+--    nb < Nat.add 3 (g 0 (by rfl))
+#testOptimize [ "MatchReduce_25" ] (norm-result: 1)
+  ∀ (x1 x2 x3 x4 : Int) (nb : Nat) (g : (y : Nat) → y = 0 → Nat),
+     heqMatchTwo [x1, x2, x3, x4] 0 g > nb ===>
+  ∀ (nb : Nat) (g : (y : Nat) → 0 = y → Nat),
+     nb < Nat.add 3 (g 0 (by rfl))
+
 /-! Test cases to validate when choice reduction must NOT be applied on match expression. -/
 
 -- ∀ (α : Type) (x : List α), discrAbstractOne x none ===>

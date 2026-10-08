@@ -373,6 +373,58 @@ def iteColorDegreeOne [DecidableEq Color] (x : Color) : Nat :=
 #testOptimize ["MatchToITE_19"]
   ∀ (x : Color) [DecidableEq Color], toColorDegreeOne x = iteColorDegreeOne x ===> True
 
+
+def heqNamedPatternNat (x : Nat) (y : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat) : Nat :=
+ match heq1 : x, heq2 : y with
+ | Nat.zero, _ => x
+ | _, Nat.zero => y + 1
+ | Nat.succ Nat.zero, _ => y + x
+ | Nat.succ (Nat.succ Nat.zero) , Nat.succ Nat.zero => g x heq1 + f y heq2
+ | r@(Nat.succ q@(Nat.succ p@(Nat.succ (Nat.succ n)))), z => n + p + q + r + z
+ | r@(Nat.succ (Nat.succ n1)), Nat.succ q@(Nat.succ p@(Nat.succ (Nat.succ ((Nat.succ n2))))) => (r + n1) * n2 * p * q
+ | q@(Nat.succ (Nat.succ n)), _ => q * n * 6
+
+
+def iteHeqNamedPatternNat (x : Nat) (y : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat) : Nat :=
+  if x = 0 then 0
+  else if y = 0 then 1 + y
+  else if x = 1 then y + 1
+  else if h : x = 2 ∧ y = 1 then g x (And.left h) + f y (And.right h)
+  else if x ≥ 4 then y + (x + (((x - 2) + (x - 4)) + (x - 1)))
+  else if x ≥ 2 ∧ y ≥ 5 then (((x + (x - 2)) * (y - 5)) * (y - 2)) * (y - 1)
+  else (x * (x - 2)) * 6
+
+-- ∀ (x y z : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat),
+--  heqNamedPatternNat x y g f = iteHeqNamedPatternNat x y g f ===> true
+#testOptimize ["MatchToITE_20"]
+  ∀ (x y : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat),
+    heqNamedPatternNat x y g f = iteHeqNamedPatternNat x y g f ===> True
+
+-- ∀ (x y z : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat), z < heqNamedPatternNat x y ===>
+#testOptimize ["MatchToITE_21"] (norm-result: 1)
+  ∀ (x y z : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat),
+      z < heqNamedPatternNat x y g f ===>
+  ∀ (x y z : Nat) (g : (x : Nat) → 2 = x → Nat) (f : (y : Nat) → 1 = y → Nat),
+    z < Blaster.dite' (0 = x)
+    (λ _ => 0)
+    (λ _ =>
+      Blaster.dite' (0 = y)
+      (λ _ => 1)
+      (λ _ =>
+        Blaster.dite' (1 = x)
+        (λ _ => Nat.add 1 y)
+        (λ _ =>
+          Blaster.dite' (1 = y ∧ 2 = x)
+          (λ _ => Nat.add (g 2 (by rfl)) (f 1 (by rfl)))
+          (λ _ =>
+            Blaster.dite' (x < 4)
+            (λ _ =>
+              Blaster.dite' ((¬ x < 2) ∧ (¬ y < 5))
+              (λ _ => Nat.mul (Nat.mul (Nat.mul (Nat.add x (Nat.sub x 2)) (Nat.sub y 5)) (Nat.sub y 2)) (Nat.sub y 1))
+              (λ _ => Nat.mul 6 (Nat.mul x (Nat.sub x 2)))
+            )
+            (λ _ => Nat.add y (Nat.add x (Nat.add (Nat.add (Nat.sub x 2) (Nat.sub x 4)) (Nat.sub x 1))))))))
+
 /-! Test cases to validate when match expression must NOT be normalized to "ite". -/
 
 def condUnchanged (a : Option Bool) (b : Bool) (c : Bool) : Bool :=

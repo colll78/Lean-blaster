@@ -22,7 +22,7 @@ namespace Blaster.Optimize
   if (← hypMapContains (← mkEqBool a true)) then return b
   if (← hypMapContains (← mkEqBool b true)) then return a
   if (← hypMapContains (← mkEqBool a false)) then return (← mkBoolFalse)
-  if (← hypMapContains (← mkEqBool b false)) then return (← mkPropFalse)
+  if (← hypMapContains (← mkEqBool b false)) then return (← mkBoolFalse)
   return none
 
 /-- Apply the following simplification/normalization rules on `and` :

@@ -708,6 +708,13 @@ def isNatPowExpr (e : Expr) : Bool :=
   | Expr.app (Expr.app (Expr.const ``Int.mul _) op1) op2 => some (op1, op2)
   | _ => none
 
+/-- Determine if `e` is a `Int.pow` expression and return its corresponding arguments.
+    Otherwise return `none`.
+-/
+@[always_inline, inline] def intPow? (e: Expr) : Option (Expr × Expr) :=
+  match e with
+  | Expr.app (Expr.app (Expr.const ``Int.pow _) op1) op2 => some (op1, op2)
+  | _ => none
 
 /-- Determine if `e` is a `Int.tdiv` expression and return its corresponding arguments.
     Otherwise return `none`.
@@ -723,6 +730,14 @@ def isNatPowExpr (e : Expr) : Bool :=
 def isIntNegExprOf (e1: Expr) (e2 : Expr) : Bool :=
   match intNeg? e1 with
   | some op => exprEq e2 op
+  | _ => false
+
+/-- Return `true` if `e := Int.pow e1 e2`. Otherwise return `false`.
+    Note that `true` is returned only when e is a fully applied `Int.pow expression.
+-/
+def isIntPowExpr (e : Expr) : Bool :=
+  match e with
+  | Expr.app (Expr.app (Expr.const ``Int.pow _) _) _ => true
   | _ => false
 
 /-- Determine if `e` is a `Blaster.decide'` expression and return its corresponding arguments.

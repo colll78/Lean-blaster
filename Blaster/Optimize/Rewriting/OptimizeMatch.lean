@@ -71,24 +71,6 @@ partial def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagati
 
   where
     @[always_inline, inline]
-    isFunExpr (e : Expr) : TranslateEnvT Bool := do
-      match e with
-      | Expr.lam .. => return true
-      | Expr.fvar fv => return isFunType' (← fv.getEnvType)
-      | Expr.const n _ =>
-           let cInfo ← getConstEnvInfo n
-           return isFunType' cInfo.type
-      | Expr.app .. =>
-          let (f', args') := getAppFnWithArgs e
-          let fInfo ← getFunEnvInfo f'
-          return isFunType' (← inferAppType fInfo.type args')
-      | Expr.proj .. =>
-          if e.hasMVar
-          then return false
-          else return isFunType' (← inferTypeEnv e)
-      | _ => return false
-
-    @[always_inline, inline]
     isPropFunType (p : ParamInfo) (e : Expr) : TranslateEnvT Bool := do
      if p.isProp then return true
      isFunExpr e
@@ -297,12 +279,14 @@ def patternMatchDiscrs (alt : Expr) (args : Array Expr) (mInfo : MatchInfo) : Tr
  let matchHit ← visit_discrs? lhs args mInfo.getFirstDiscrPos mInfo.getFirstAltPos .UnifyMatch
  return (altsMeta.mvarArgs, matchHit)
 
+
 @[always_inline, inline]
-def instantiateUnifiedMVars (mvars : Array Expr) : TranslateEnvT (Array Expr) := do
+partial def instantiateUnifiedMVars (mvars : Array Expr) (margs : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Array Expr) := do
  let mAssignments := (← get).optEnv.mAssignments
  let rec visit (idx : Nat) (stop : Nat) (mvars : Array Expr) : TranslateEnvT (Array Expr) := do
     if idx ≥ stop then
-      return mvars
+      -- traverse discrs in reverse order to properly set heq
+      assignEqRefl mInfo mvars margs
     else
       let val := mAssignments.getD mvars[idx]! instCacheMiss
       if !exprEq val instCacheMiss then
@@ -330,14 +314,18 @@ def instantiateUnifiedMVars (mvars : Array Expr) : TranslateEnvT (Array Expr) :=
 -/
 def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) : TranslateEnvT (Option BetaLambdaResult) := do
  let mut args ← resolveArgsWithEqualityStack args
+ let discrsType ← getLambdaBinderTypes args[mInfo.getFirstDiscrPos - 1]!
  for i in [mInfo.getFirstDiscrPos:mInfo.getFirstAltPos] do
-   unless ← isNormConstructor args[i]! do
+   -- Proof discriminators carry no runtime constructor information.
+   if ← isPropEnv discrsType[i - mInfo.getFirstDiscrPos]! then continue
+   unless ← isNormConstructor args[i]! (patternMatch := true) do
      let some exposed ← revealConstructor? args[i]! | return none
      args := args.set! i exposed
  let alts ← getMatchAlts args mInfo
  visit_alts? args alts mInfo.getFirstAltPos mInfo.arity false
 
    where
+
     visit_alts?
       (args : Array Expr) (alts : Array Expr)
       (idx : Nat) (stop : Nat) (isPrevPotentialMatch : Bool) : TranslateEnvT (Option BetaLambdaResult) := do
@@ -348,8 +336,9 @@ def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) 
         if isUnifyMatchResult matchHit && !isPrevPotentialMatch then
           -- erase context
           eraseMatchRhsRewriteCache mInfo
-          betaLambdaEnv args[idx]! (← instantiateUnifiedMVars mvarArgs)
+          betaLambdaEnv args[idx]! (← instantiateUnifiedMVars mvarArgs args mInfo)
         else visit_alts? args alts (idx + 1) stop (isPrevPotentialMatch || isPotentialMatchResult matchHit)
+
 
     resolveArgsWithEqualityStack (args : Array Expr) : TranslateEnvT (Array Expr) := do
      let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
@@ -960,15 +949,14 @@ where
      let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, curCtx, _, active, _⟩, _, _, _⟩ := (← get).optEnv
      let h := (← get).optEnv.matchInContext
      let alts ← getMatchAlts args mInfo
-     -- all last patterns are FVars
+     for i in [:alts.size - 1] do
+       if !(← existsNotEqPattern mInfo args alts[i]! matchInContext active) then
+         return none
      let (mvarArgs, matchHit) ← patternMatchDiscrs alts[alts.size - 1]! args mInfo
      if isUnifyMatchResult matchHit then
-       for i in [:alts.size - 1] do
-         if !(← existsNotEqPattern mInfo args alts[i]! matchInContext active) then
-           return none
        -- erase context
        eraseMatchRhsRewriteCache mInfo
-       return some $ Sum.inr (← betaLambdaShared args[mInfo.arity - 1]! (← instantiateUnifiedMVars mvarArgs))
+       return some $ Sum.inr (← betaLambdaShared args[mInfo.arity - 1]! (← instantiateUnifiedMVars mvarArgs args mInfo))
      else return none
 
 

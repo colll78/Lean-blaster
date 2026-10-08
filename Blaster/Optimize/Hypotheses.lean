@@ -2,7 +2,7 @@ import Lean
 import Blaster.Optimize.Lemmas
 import Blaster.Optimize.Rewriting.OptimizePropNot
 
-open Lean Meta Elab
+open Lean Meta Elab Blaster.Data.HashMap
 
 namespace Blaster.Optimize
 
@@ -290,7 +290,7 @@ partial def addHypotheses
       match es with
       | [] => return ()
       | (e, fv) :: xs =>
-        if let some (a, b) := e.and? then
+        if let some (a, b) := propAnd? e then
             let proof1 ← mkApp3Expr (← mkAndLeft) a b fv
             let proof2 ← mkApp3Expr (← mkAndRight) a b fv
             updateHypMap a proof1 nextCtxId
@@ -494,5 +494,164 @@ def notInHypMap (e : Expr) : TranslateEnvT (Option Expr) := do
   if e.hasMVar then return none
   let not_e ← optimizeAdvancedNot (← mkPropNotOp) (restart := false) #[e]
   inHypMap not_e
+
+
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
+      - return `some (N1 "<" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Nat`
+      - return `some (N1 "<" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Int`
+      - return `some (S1 "<" S2)` when `op1 := S1 ∧ op2 := S2 ∧ Type(op1) = String`
+    NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
+    Otheriwse `none`.
+-/
+def cstLT? (op1 : Expr) (op2 : Expr) : Option Bool :=
+ match op1 with
+ | Expr.lit (Literal.natVal n1) =>
+    if let Expr.lit (Literal.natVal n2) := op2
+    then some $ Nat.blt n1 n2
+    else none
+ | Expr.lit (Literal.strVal s1) =>
+    if let Expr.lit (Literal.strVal s2) := op2
+    then some $ s1 < s2
+    else none
+ | _ =>
+   if let some n1 := isIntValue? op1 then
+     if let some n2 := isIntValue? op2
+     then some $ n1 < n2
+     else none
+   else none
+
+
+/-- Given `op1` and `op2` corresponding to the operands for `LT.le`:
+      - return `some (N1 "≤" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Nat`
+      - return `some (N1 "≤" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Int`
+      - return `some (S1 "≤" S2)` when `op1 := S1 ∧ op2 := S2 ∧ Type(op1) = String`
+    NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
+    Otheriwse `none`.
+-/
+def cstLE? (op1 : Expr) (op2 : Expr) : Option Bool :=
+ match op1 with
+ | Expr.lit (Literal.natVal n1) =>
+    if let Expr.lit (Literal.natVal n2) := op2
+    then some $ Nat.ble n1 n2
+    else none
+ | Expr.lit (Literal.strVal s1) =>
+    if let Expr.lit (Literal.strVal s2) := op2
+    then some $ s1 ≤ s2
+    else none
+ | _ =>
+   if let some n1 := isIntValue? op1 then
+     if let some n2 := isIntValue? op2
+     then some $ n1 ≤ n2
+     else none
+   else none
+
+inductive BackProofStack where
+  | WaitAndLeft (e a b : Expr)
+  | WaitAndRight (e a b p : Expr)
+  | WaitOrLeft (e a b : Expr)
+  | WaitOrRight (e a b : Expr)
+deriving Repr
+
+abbrev BackProofCache := HashMap PtrExpr (Option Expr)
+
+private unsafe def backwardProofAux (expectedProof : Expr) : TranslateEnvT (Option Expr) :=
+  let rec go (res : Sum Expr (Option Expr)) (stk : Array BackProofStack) (cache : BackProofCache) : TranslateEnvT (Option Expr) := do
+    match res with
+    | Sum.inr none =>
+        if stk.usize > 0 then
+          let topIdx := stk.usize - 1
+          let next := stk.uget topIdx lcProof
+          match next with
+          | .WaitOrLeft e a b =>
+               -- left not in hyp try right
+               let stk := stk.uset topIdx (.WaitOrRight e a b) lcProof
+               go (Sum.inl b) stk cache
+          | _ => return none -- no proof found
+        else return none -- no proof found
+    | Sum.inr res@(some p) =>
+        if stk.usize > 0 then
+          let topIdx := stk.usize - 1
+          let next := stk.uget topIdx lcProof
+          match next with
+          | .WaitAndLeft e a b =>
+               let stk := stk.uset topIdx (.WaitAndRight e a b p) lcProof
+               go (Sum.inl b) stk cache
+          | .WaitAndRight e a b pa =>
+               let andProof ← mkApp4Expr (← mkAndIntro) a b pa p
+               go (Sum.inr (some andProof)) stk.pop (cache.insert e andProof)
+          | .WaitOrLeft e a b =>
+               let orProof ← mkApp3Expr (← mkOrInl) a b p
+               go (Sum.inr (some orProof)) stk.pop (cache.insert e orProof)
+          | .WaitOrRight e a b =>
+               let orProof ← mkApp3Expr (← mkOrInr) a b p
+               go (Sum.inr (some orProof)) stk.pop (cache.insert e orProof)
+        else return res
+    | Sum.inl cur =>
+       if let some p := cache.get? cur then
+         go (Sum.inr p) stk cache
+       else if let p@(some r) ← atomicProof? cur then
+         go (Sum.inr p) stk (cache.insert cur r)
+       else if let p@(some h) ← inHypMap cur then
+         go (Sum.inr p) stk (cache.insert cur h)
+       else if let some (a, b) := propAnd? cur then
+         let stk := stk.push (.WaitAndLeft cur a b)
+         go (Sum.inl a) stk cache
+       else if let some (a, b) := propOr? cur then
+         let stk := stk.push (.WaitOrLeft cur a b)
+         go (Sum.inl a) stk cache
+       else go (Sum.inr none) stk (cache.insert cur none)
+  go (Sum.inl expectedProof) (Array.emptyWithCapacity (expectedProof.approxDepth.toNat + 16)) (HashMap.emptyWithCapacity 64)
+
+ where
+   atomicProof? (p : Expr) : TranslateEnvT (Option Expr) := do
+     if isTrueExpr p then return ← mkTrueIntro
+     else if isFalseExpr p then return ← mkNotFalse
+     else if let some r ← isReflEq? p then return r
+     else if let some r ← isDecidableLt? p then return r
+     else isDecidableLe? p
+
+   /-- Return some `Eq.refl a` only when p := a = a. -/
+   @[always_inline, inline]
+   isReflEq? (p : Expr) : TranslateEnvT (Option Expr) := do
+     match eq? p with
+     | some (psort, e1, e2) =>
+          if exprEq e1 e2 then
+            let lvl ← getLevelEnv psort
+            mkApp2Expr (← mkEqRefl [lvl]) psort e1
+          else return none
+     | _ => return none
+
+   /-- Generate decidable proof only when one of the following conditions is satisfied:
+         - p := N1 < N2 ∧ Type(N1) ∈ [Int, Nat]
+         - p := S1 < S2 ∧ Type(S1) = String
+   -/
+   @[always_inline, inline]
+   isDecidableLt? (p : Expr) : TranslateEnvT (Option Expr) := do
+    if let some (_psort, _pinst, e1, e2) := lt? p then
+      if let some true := cstLT? e1 e2
+      then mkOfDecideEqProof? p true
+      else return none
+    else return none
+
+   /-- Generate decidable proof only when one of the following conditions is satisfied:
+         - p := N1 ≤ N2 ∧ Type(N1) ∈ [Int, Nat]
+         - p := S1 ≤ S2 ∧ Type(S1) = String
+   -/
+   @[always_inline, inline]
+   isDecidableLe? (p : Expr) : TranslateEnvT (Option Expr) := do
+    if let some (_psort, _pinst, e1, e2) := le? p then
+      if let some true := cstLE? e1 e2
+      then mkOfDecideEqProof? p true
+      else return none
+    else return none
+
+
+
+/-- Given expected proof `p` perform backward proof reconstruction w.r.t. hypothesis map -/
+def backwardProof (p : Expr) : TranslateEnvT Expr := do
+  if let some r ← unsafe backwardProofAux p then return r
+  -- Add sorry proof for now when we can't perform proof reconstruction
+  hashcons (← mkSorry p false)
+
 
 end Blaster.Optimize

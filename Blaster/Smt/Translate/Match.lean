@@ -252,13 +252,16 @@ private partial def mkCond
 -/
 def translateMatchAux?
   (termTranslator : Expr → TranslateEnvT SmtTerm)
-  (idx : Nat) (discrs : Array Expr) (lhs : Array Expr)
-  (rhs : Expr) (params : Array Expr)
-  (_matchType : Expr) (acc : Option MatchResult) : TranslateEnvT (Option MatchResult) := do
+  (lastPattern : Bool) (mInfo : MatchInfo) (margs : Array Expr)
+  (lhs : Array Expr) (rhs : Expr) (params : Array Expr)
+  (acc : Option MatchResult) : TranslateEnvT (Option MatchResult) := do
   let rhs ← betaLambdaShared rhs params
   let hvars ← params.foldlM insertFVars .emptyWithCapacity
-  if idx == 0 then -- last pattern translated first
-    let discrTerms := discrs.map Sum.inl
+  if lastPattern then -- last pattern translated first
+    -- Delay each discriminator until a live branch actually needs its term.
+    let mut discrTerms : Array MatchSubject := #[]
+    for i in mInfo.getDiscrRange do
+      discrTerms := discrTerms.push (.inl margs[i]!)
     let srhs ← withTranslatePattern hvars $ mkRhs discrTerms lhs rhs
     return some { discrTerms, iteTerm := some srhs }
   else

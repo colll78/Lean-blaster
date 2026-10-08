@@ -71,7 +71,13 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                let i_stack' := .AppWaitForConst ras :: i_stack
                optimizeExprAux (.InitOptimizeExpr f :: i_stack')
 
-          | Expr.lam n t b bi => optimizeExprAux (.InitOptimizeExpr t :: .LambdaWaitForType n bi b :: i_stack)
+          | Expr.lam n t b bi =>
+               if ← isPropEnv t then
+                 -- skip proof term
+                 match (← stackContinuity (.LambdaWaitForType n bi b :: i_stack) t) with
+                 | Sum.inl stack' => optimizeExprAux stack'
+                 | _ => throwEnvError "optimizeExprAux: continuity expected for LambdaWaitForType !!!"
+               else optimizeExprAux (.InitOptimizeExpr t :: .LambdaWaitForType n bi b :: i_stack)
 
           | Expr.letE _n _t v b _ => optimizeExprAux (inlineLet v b i_stack) -- inline let expression
 
@@ -281,9 +287,9 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
     @[always_inline, inline]
     optimizeExplicitArgs
-     (f : Expr) (args : Array Expr) (idx : Nat) (stopIdx : Nat)
-     (pInfo : FunEnvInfo) (mInfo : Option MatchInfo) (prevInApp : Bool)
-     (stack : List OptimizeStack) (nxtStack : List OptimizeStack) : TranslateEnvT (List OptimizeStack) := do
+     (f : Expr) (args : Array Expr) (idx : Nat) (_stopIdx : Nat)
+     (_pInfo : FunEnvInfo) (mInfo : Option MatchInfo) (_prevInApp : Bool)
+     (stack : List OptimizeStack) (_nxtStack : List OptimizeStack) : TranslateEnvT (List OptimizeStack) := do
       let currArg := args[idx]!
       if isBlasterDiteConst f then
          -- NOTE: optimization on Blaster.dite' cond already performed at this stage
@@ -297,21 +303,7 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
          if idx >= argInfo.getFirstAltPos && idx < argInfo.arity then
            optimizeMatchAlt args argInfo idx currArg stack
          else return (.InitOptimizeExpr currArg :: stack)
-      else if pInfo.paramsInfo[idx]!.isProp && (currArg.isFVar || (← isNotFun currArg.getAppFn)) then
-          -- need to instantiate all MVars
-          let currArg ← instantiateSharedMVars currArg
-          -- NOTE: We don't optimize proof arguments. We only do proof reconstruction when arg type differs
-          let argType ← inferArgTypeAt pInfo.type args idx
-          match (← inHypMap argType) with
-          | some p =>
-              if exprEq p currArg then
-                return (.AppOptimizeExplicitArgs f (args.set! idx currArg) (idx + 1) stopIdx pInfo mInfo prevInApp :: nxtStack)
-              else
-                return (.AppOptimizeExplicitArgs f (args.set! idx p) (idx + 1) stopIdx pInfo mInfo prevInApp :: nxtStack)
-          | none => -- TODO: add backward proof reconstruction
-             return (.AppOptimizeExplicitArgs f (args.set! idx currArg) (idx + 1) stopIdx pInfo mInfo prevInApp :: nxtStack)
       else return (.InitOptimizeExpr currArg :: stack)
-
 
 @[always_inline, inline]
 def optimizeExpr (e : Expr) : TranslateEnvT Expr :=

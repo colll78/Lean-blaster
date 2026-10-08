@@ -197,31 +197,10 @@ def getValuePolyTwo
 -- ∀ (x : Nat) (g : True → Nat → Nat), 0 < g not_false x
 -- NOTE: Test case to validate that the extra arguments are considered properly when
 -- condition is reduced to True/False.
-def normChoiceAddDite_10 : Lean.Expr :=
-Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `g
-    (Lean.Expr.forallE `h1
-      (Lean.Expr.const `True [])
-      (Lean.Expr.forallE `h2
-        (Lean.Expr.const `Nat [])
-        (Lean.Expr.const `Nat [])
-        (Lean.BinderInfo.default))
-      (Lean.BinderInfo.default))
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `instLTNat []))
-        (Lean.Expr.lit (Lean.Literal.natVal 0)))
-      (Lean.Expr.app (Lean.Expr.app (Lean.Expr.bvar 0) (Lean.Expr.const `not_false [])) (Lean.Expr.bvar 1)))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
-elab "normChoiceAddDite_10" : term => return normChoiceAddDite_10
-
-#testOptimize [ "NormChoiceAppDite_10" ]
+#testOptimize [ "NormChoiceAppDite_10" ] (norm-result: 1)
   ∀ (x : Nat) (f : False → Nat → Nat) (g : ¬ False → Nat → Nat),
-    (if h : False then f h else g h) x > 0 ===> normChoiceAddDite_10
+    (if h : False then f h else g h) x > 0 ===>
+  ∀ (x : Nat) (g : True → Nat → Nat), 0 < g True.intro x
 
 /-! Test cases to validate when normalization of function application on match. -/
 

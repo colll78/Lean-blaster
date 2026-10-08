@@ -53,10 +53,94 @@ def isNormIntConstr (e : Expr) : Bool :=
     (Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit _)) _)) => true
   | _ => false
 
+/-- Return `true` if the given type expression `t` (e.g., obtained via `inferType`)
+    satisfy the following:
+      - `t :=  α₁ → ... → αₙ`
+    Assumes that `t` is not a Prop.
+-/
+def isFunType' (t : Expr) : Bool :=
+  if t.isForall then true
+  else match autoParam? t with  -- considering case where function is wrapped in an autoParam arg
+       | some (t', _tactic) => t'.isForall
+       | _ => false
+
+/-- Return `true` if the given type expression `t` (e.g., obtained via `inferType`)
+    satisfy the following:
+      - ¬ isProp t
+      - `t :=  α₁ → ... → αₙ`
+-/
+def isFunType (t : Expr) : TranslateEnvT Bool := do
+  if (← isPropEnv t) then return false
+  else return isFunType' t
+
+/-- Quick function determining if a given expression `e` is a function. -/
 @[always_inline, inline]
-def isNormConstructor (e : Expr) : TranslateEnvT Bool := do
-  if ← isConstructor e then return true
+def isFunExpr (e : Expr) : TranslateEnvT Bool := do
+ match e with
+ | Expr.lam .. => return true
+ | Expr.fvar fv => return isFunType' (← fv.getEnvType)
+ | Expr.const n _ =>
+      let cInfo ← getConstEnvInfo n
+      return isFunType' cInfo.type
+ | Expr.app .. =>
+     let (f', args') := getAppFnWithArgs e
+     let fInfo ← getFunEnvInfo f'
+     return isFunType' (← inferAppType fInfo.type args')
+ | Expr.proj .. =>
+     if e.hasMVar
+     then return false
+     else return isFunType' (← inferTypeEnv e)
+ | _ => return false
+
+/-- Return `true` if e corresponds to a structure ctor (e.g. String.mk) -/
+@[always_inline, inline]
+def isStructureCtorExpr (e : Expr) : TranslateEnvT Bool := do
+  match e.getAppFn' with
+  | Expr.const n _ => isStructureCtorEnv n
+  | _ => return false
+
+/-- Return `true` if e corresponds to a fully applied structure
+    with each argument aᵢ satisfying one of the following conditions:
+      - isStructureCtorExpr aᵢ ∧ isFullyAppliedStructureAux aᵢ
+      - ¬ isStructureCtorExpr aᵢ ∧ (isNormConstructorBase aᵢ ∨ isProp aᵢ ∨ isFunExpr aᵢ)
+    Assumes that `e` satisfies `isStructureCtorExpr e ∧ isFullyAppliedConst e`.
+-/
+@[always_inline, inline]
+partial def isFullyAppliedStructure (e : Expr) : TranslateEnvT Bool := do
+  let pInfo ← getFunEnvInfo e.getAppFn'
+  let rec go (xs : List (Expr × ParamInfo)) : TranslateEnvT Bool := do
+    match xs with
+    | [] => return true
+    | (cur, p) :: xs' =>
+      if (← isStructureCtorExpr cur <&&> isFullyAppliedConst e) then
+        let pInfo' ← getFunEnvInfo cur.getAppFn'
+        go (getArgs cur (pInfo'.paramsInfo.size - 1) pInfo'.paramsInfo xs')
+      else if ← isNormConstructorBase cur <||> pure p.isProp <||> isFunExpr cur then go xs'
+      else return false
+  go (getArgs e (pInfo.paramsInfo.size - 1) pInfo.paramsInfo [])
+
+where
+  getArgs (e : Expr) (idx : Nat) (paramsInfo : Array ParamInfo) (acc : List (Expr × ParamInfo)) : List (Expr × ParamInfo) :=
+    match e with
+    | Expr.app f a => getArgs f (idx - 1) paramsInfo ((a, paramsInfo[idx]!) :: acc)
+    | _ => acc
+
+  @[always_inline, inline]
+  isNormConstructorBase (e : Expr)  : TranslateEnvT Bool := do
+   if ← isConstructor e then return true
+   else return isNormNatConstr e || isNormIntConstr e || isPropCtor e
+
+@[always_inline, inline]
+def isNormConstructor (e : Expr) (patternMatch := false) : TranslateEnvT Bool := do
+  if ← isPatternConstructor e then return true
   else return isNormNatConstr e || isNormIntConstr e || isPropCtor e
+
+ where
+   isPatternConstructor (e : Expr) : TranslateEnvT Bool := do
+     if ← isConstructor e then
+       if patternMatch || !(← isStructureCtorExpr e) then return true
+       else isFullyAppliedStructure e
+     else return false
 
 /-- Return `true` if e corresponds to a constructor applied to only constant values (e.g., no free or bounded variables). -/
 @[always_inline, inline]
@@ -398,6 +482,7 @@ def reorderNatOp (args: Array Expr) : (Expr × Expr) :=
     - #[fvar id1, fvar id2] ===> #[fvar id2, fvar id1] (if id2.name < id1.name)
     - #[fvar _, _] ===> args
     - #[e, fvar _] ===> #[fvar _, e]
+    - #[(Int.pow x y), e] ===> #[e, Int.pow x y] if ¬ (isIntPowExpr e)
     - #[Int.neg x, x] ===> #[x, Int.neg x]
     - #[e1, e2] ===> #[e2, e1] (if isTaggedRecursiveCall e1 ∧ ¬ (isTaggedRecursiveCall e2))
     - #[e1, e2] ===> #[e2, e1] (if e2 < e1)
@@ -418,7 +503,9 @@ def reorderIntOp (args: Array Expr) : (Expr × Expr) :=
     | _, Expr.fvar _ => (e2, e1)
     | _, _ =>
       let (e1', e2') := reorderCommon e1 e2
-      if isIntNegExprOf e1' e2' then (e2', e1') else (e1', e2')
+      if (isIntPowExpr e1' && !isIntPowExpr e2') then (e2', e1')
+      else if isIntNegExprOf e1' e2' then (e2', e1')
+      else (e1', e2')
 
 /-- Reorder operands for commutative operators -/
 def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
@@ -508,26 +595,6 @@ def getFunBodyAux? (f : Expr) : TranslateEnvT (Option Expr) := do
        hashcons e
 
   | _ => return none
-
-/-- Return `true` if the given type expression `t` (e.g., obtained via `inferType`)
-    satisfy the following:
-      - `t :=  α₁ → ... → αₙ`
-    Assumes that `t` is not a Prop.
--/
-def isFunType' (t : Expr) : Bool :=
-  if t.isForall then true
-  else match autoParam? t with  -- considering case where function is wrapped in an autoParam arg
-       | some (t', _tactic) => t'.isForall
-       | _ => false
-
-/-- Return `true` if the given type expression `t` (e.g., obtained via `inferType`)
-    satisfy the following:
-      - ¬ isProp t
-      - `t :=  α₁ → ... → αₙ`
--/
-def isFunType (t : Expr) : TranslateEnvT Bool := do
-  if (← isPropEnv t) then return false
-  else return isFunType' t
 
 
 /-- Same as getFunBodyAux? but cache result -/

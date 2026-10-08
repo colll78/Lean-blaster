@@ -134,8 +134,8 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - 1 * n ==> n
      - N1 + N2 ==> N1 "*" N2
      - N1 * (N2 * n) ==> (N1 "*" N2) * n
-     - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
      - n * n^m ===> n ^ (m + 1)
+     - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Nat.mul.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mul` expected at this stage)
 -/

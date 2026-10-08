@@ -202,6 +202,8 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
   | .NonFunOptimizeArgs f args idx stopIdx prevInCtor :: xs =>
        -- optExpr corresponds to the optimized non-fun argument referenced by idx.
        -- continuity with optimizing the next implicit argument.
+       -- Perform backward proof reconstruction in ctor/applied theorem (if necessary)
+       let optExpr ← normNonFunProof idx f args optExpr
        return Sum.inl (.NonFunOptimizeArgs f (args.set! idx optExpr) (idx + 1) stopIdx prevInCtor :: xs)
 
   | .AppOptimizeImplicitArgs f args idx startArgIdx stopIdx pInfo prevInApp :: xs =>
@@ -212,6 +214,8 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
   | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo prevInApp :: xs =>
        -- optExpr corresponds to the optimized explicit argument referenced by idx.
        -- continuity with optimizing the next explicit argument.
+       -- Perform backward proof reconstruction (if necessary)
+       let optExpr ← normProof idx args optExpr pInfo
        return Sum.inl (.AppOptimizeExplicitArgs f (args.set! idx optExpr) (idx + 1) stopIdx pInfo mInfo prevInApp :: xs)
 
   | .DiteChoiceWaitForCond f args pInfo prevInApp :: xs =>
@@ -350,6 +354,23 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
         let stop := extra_size + args.size
         return visit' 0 extra_size stop extra_args args (Array.emptyWithCapacity stop)
 
+    @[always_inline, inline]
+    normProof (idx : Nat) (args : Array Expr) (optArg : Expr) (pInfo : FunEnvInfo) : TranslateEnvT Expr := do
+     if idx ≥ pInfo.paramsInfo.size then return optArg
+     else if pInfo.paramsInfo[idx]!.isProp then
+       let argType ← inferArgTypeAt pInfo.type args idx
+       match (← inHypMap argType) with
+       | some p => return p
+       | none =>
+         if exprEq (← inferTypeEnv optArg) argType
+         then return optArg
+         else backwardProof argType
+     else return optArg
+
+    @[always_inline, inline]
+    normNonFunProof (idx : Nat) (f : Expr) (args : Array Expr) (optArg : Expr) : TranslateEnvT Expr := do
+      let pInfo ← getFunEnvInfo f
+      normProof idx args optArg pInfo
 
 /-- Use the same renamed-call cache before and after argument normalization. -/
 def recursiveRewriteContinuity (f : Expr) (args : Array Expr)

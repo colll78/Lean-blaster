@@ -33,6 +33,7 @@ def opaqueFuns : HashSet Name :=
     ``Int.add, -- Int.sub is defined as m + (-n)
     ``Int.neg,
     ``Int.mul,
+    ``Int.pow,
     ``Int.toNat,
     -- Division rounding towards zero
     ``Int.tdiv,

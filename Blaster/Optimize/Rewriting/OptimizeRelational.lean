@@ -104,13 +104,9 @@ def natRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
     Otheriwse `none`.
 -/
 def cstLTProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
- match op1, op2 with
- | Expr.lit (Literal.natVal n1), Expr.lit (Literal.natVal n2) => mkPropLit (Nat.blt n1 n2)
- | Expr.lit (Literal.strVal s1), Expr.lit (Literal.strVal s2) => mkPropLit (s1 < s2)
- | _, _ =>
-   match isIntValue? op1, isIntValue? op2 with
-   | some n1, some n2 => mkPropLit (n1 < n2)
-   | _, _ => return none
+  if let some b := cstLT? op1 op2
+  then mkPropLit b
+  else return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some ¬ (b < op1)` when `op2 := 1 + b ∧ Type(op1) = Int`

@@ -93,18 +93,36 @@ def hasLawfulBEqInstance (t : Expr) (beqInst : Expr) : TranslateEnvT Bool := do
 
 
 /-- Given an expression `c` and a boolean value `b`, perform the following:
+     - When `some d ← trySynthDecidableInstance? c`
+        - When b is `true`:
+           - return `some $ of_decide_eq_true c d (rfl (Decidable.decide c d))`
+        - Otherwise:
+            - return `some $ of_decide_eq_false c d (rfl (Decidable.decide c d))`
+     - Otherwise (i.e., decidable instance not found)
+         - return `none`
+-/
+def mkOfDecideEqProof? (c : Expr) (b : Bool) : TranslateEnvT (Option Expr) := do
+ match (← trySynthDecidableInstance? c) with
+ | none => return none
+ | some d =>
+    let rflInst ← mkApp2Expr (← mkRfl [levelOne]) (← mkBoolType) (← mkApp2Expr (← mkDecide) c d)
+    if b
+    then mkApp3Expr (← mkOfDecideEqTrue) c d rflInst
+    else mkApp3Expr (← mkOfDecideEqFalse) c d rflInst
+
+/-- Given an expression `c` and a boolean value `b`, perform the following:
      let d ← synthDecidableWithNotFound! c
       - When b is `true`:
-         - return `of_decide_eq_true c d (Eq.refl true)`
+         - return `some $ of_decide_eq_true c d (rfl (Decidable.decide c d))`
       - Otherwise:
-         - return `of_decide_eq_false c d (Eq.refl true)`
+         - return `some $ of_decide_eq_false c d (rfl (Decidable.decide c d))`
 -/
 def mkOfDecideEqProof (c : Expr) (b : Bool) : TranslateEnvT Expr := do
- let eqReflInst ← mkApp2Expr (← mkEqRefl) (← mkBoolType) (← mkBoolLit b)
  let d ← synthDecidableWithNotFound! c
+ let rflInst ← mkApp2Expr (← mkRfl [levelOne]) (← mkBoolType) (← mkApp2Expr (← mkDecide) c d)
  if b
- then mkApp3Expr (← mkOfDecideEqTrue) c d eqReflInst
- else mkApp3Expr (← mkOfDecideEqFalse) c d eqReflInst
+ then mkApp3Expr (← mkOfDecideEqTrue) c d rflInst
+ else mkApp3Expr (← mkOfDecideEqFalse) c d rflInst
 
 /-- Given `f x₁ ... xₙ`, return `true` only when one of the following conditions is satisfied:
      - `f := BEq.beq` with sort parameter that has a `LawfulBEq` instance
